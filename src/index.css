@@ -231,3 +231,27 @@
   width: 100%;
   position: relative;
 }
+/* Add this to your global CSS */
+.main-content {
+  transition: margin-left 0.3s ease-in-out;
+}
+
+@media (max-width: 1023px) {
+  .main-content {
+    margin-left: 0;
+  }
+  
+  .sidebar-open .main-content {
+    margin-left: 16rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .main-content {
+    margin-left: 16rem;
+  }
+  
+  .sidebar-collapsed .main-content {
+    margin-left: 5rem;
+  }
+}

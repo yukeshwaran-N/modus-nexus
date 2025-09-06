@@ -1,5 +1,6 @@
 // src/App.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from '@/components/AppSidebar';
 import Dashboard from '@/components/Dashboard';
@@ -9,6 +10,8 @@ import { CrimeInsightsPanel } from '@/components/CrimeInsightsPanel';
 import { CriminalNetworkGraph } from '@/components/CriminalNetworkGraph';
 import { LiveFeedPanel } from '@/components/LiveFeedPanel';
 import { CriminalDataEntry } from "@/components/CriminalDataEntry";
+import { CriminalReport } from "@/components/CriminalReport";
+import { SystemSettings } from "@/components/SystemSettings";
 import Chatbot from './components/Chatbot';
 
 // Define the CriminalRecord interface
@@ -33,7 +36,26 @@ interface CriminalRecord {
   [key: string]: any;
 }
 
-function App() {
+// Component to sync sidebar state with routing
+function RouteSync({ setActiveView }: { setActiveView: (view: string) => void }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Extract view from pathname and set active view
+    const path = location.pathname.substring(1); // Remove leading slash
+    if (path) {
+      setActiveView(path);
+    } else {
+      setActiveView('dashboard');
+    }
+  }, [location.pathname, setActiveView]);
+
+  return null;
+}
+
+// Main App Content with Routing
+function AppContent() {
   const [activeView, setActiveView] = useState('dashboard');
   const [chatbotInitialMessage, setChatbotInitialMessage] = useState('');
   const [showChatbot, setShowChatbot] = useState(false);
@@ -45,37 +67,45 @@ function App() {
     setShowChatbot(true);
   };
 
-  const renderContent = () => {
-    switch (activeView) {
-      case "criminals":
-        return <CriminalsTable onAskAI={handleAskAI} />;
-      case "maps":
-        return <CrimeHeatmap />;
-      case "insights":
-        return <CrimeInsightsPanel />;
-      case "network":
-        return <CriminalNetworkGraph />;
-      case "live":
-        return <LiveFeedPanel />;
-      case "data-entry":
-        return <CriminalDataEntry />;
-      default:
-        return <Dashboard />;
+  const handleViewChange = (view: string) => {
+    setActiveView(view);
+    // Navigate to the corresponding route
+    if (view === 'dashboard') {
+      window.location.href = '/';
+    } else {
+      window.location.href = `/${view}`;
     }
   };
 
   return (
     <SidebarProvider>
+      <RouteSync setActiveView={setActiveView} />
+      
       <div className="min-h-screen flex w-full bg-background">
-        <AppSidebar activeView={activeView} setActiveView={setActiveView} />
-        <div className="flex-1">
-          {renderContent()}
+        <AppSidebar activeView={activeView} setActiveView={handleViewChange} />
+        
+        <div className="flex-1 overflow-auto">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route 
+              path="/criminals" 
+              element={<CriminalsTable onAskAI={handleAskAI} />} 
+            />
+            <Route path="/maps" element={<CrimeHeatmap />} />
+            <Route path="/insights" element={<CrimeInsightsPanel />} />
+            <Route path="/network" element={<CriminalNetworkGraph />} />
+            <Route path="/live" element={<LiveFeedPanel />} />
+            <Route path="/data-entry" element={<CriminalDataEntry />} />
+            <Route path="/reports" element={<CriminalReport />} />
+            <Route path="/settings" element={<SystemSettings />} />
+            <Route path="/cases" element={<div>Criminal Cases View - Under Development</div>} />
+          </Routes>
         </div>
         
         {/* Add Chatbot here */}
         {showChatbot && (
           <Chatbot 
-            setActiveView={setActiveView}
             initialMessage={chatbotInitialMessage}
             criminalData={criminalDataForAnalysis}
             onClose={() => {
@@ -86,6 +116,15 @@ function App() {
         )}
       </div>
     </SidebarProvider>
+  );
+}
+
+// Main App wrapper with Router
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
 
