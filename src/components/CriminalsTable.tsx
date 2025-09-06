@@ -1,17 +1,59 @@
-// src/components/CriminalsTable.tsx
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { useCriminalRecords } from '@/hooks/useCriminalRecords';
-import { Search, Filter, ArrowUpDown, X, Edit, Eye, Save, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Filter, ArrowUpDown, X, Edit, Eye, Save, ChevronDown, ChevronUp, Brain } from 'lucide-react';
+
+// Define TypeScript interfaces
+interface CriminalRecord {
+  id: string;
+  case_id: string;
+  name: string;
+  age?: number;
+  gender?: string;
+  phone_number?: string;
+  email?: string;
+  crime_type: string;
+  last_location: string;
+  current_status?: string;
+  risk_level?: string;
+  total_cases?: number;
+  arrest_date?: string;
+  modus_operandi?: string;
+  tools_used?: string;
+  associates?: string;
+  address?: string;
+  [key: string]: any;
+}
+
+interface EditModalProps {
+  record: CriminalRecord;
+  onSave: (record: CriminalRecord) => void;
+  onClose: () => void;
+}
+
+interface ViewModalProps {
+  record: CriminalRecord;
+  onClose: () => void;
+}
+
+interface DetailItemProps {
+  label: string;
+  value: string | number | undefined;
+  fullWidth?: boolean;
+}
+
+interface CriminalsTableProps {
+  onAskAI?: (criminalData: CriminalRecord) => void;
+}
 
 // Edit modal component
-function EditModal({ record, onSave, onClose }) {
-  const [formData, setFormData] = useState(record);
+function EditModal({ record, onSave, onClose }: EditModalProps) {
+  const [formData, setFormData] = useState<CriminalRecord>(record);
 
-  const handleChange = (field, value) => {
+  const handleChange = (field: keyof CriminalRecord, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData);
   };
@@ -53,7 +95,7 @@ function EditModal({ record, onSave, onClose }) {
               <input
                 type="number"
                 value={formData.age || ''}
-                onChange={(e) => handleChange('age', e.target.value)}
+                onChange={(e) => handleChange('age', parseInt(e.target.value) || 0)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -151,7 +193,7 @@ function EditModal({ record, onSave, onClose }) {
 }
 
 // View details modal component
-function ViewModal({ record, onClose }) {
+function ViewModal({ record, onClose }: ViewModalProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -206,8 +248,8 @@ function ViewModal({ record, onClose }) {
 }
 
 // Helper component for detail items
-function DetailItem({ label, value, fullWidth = false }) {
-  if (!value) return null;
+function DetailItem({ label, value, fullWidth = false }: DetailItemProps) {
+  if (value === undefined || value === null || value === '') return null;
   
   return (
     <div className={fullWidth ? 'col-span-2' : ''}>
@@ -217,15 +259,23 @@ function DetailItem({ label, value, fullWidth = false }) {
   );
 }
 
-export function CriminalsTable() {
+export function CriminalsTable({ onAskAI }: CriminalsTableProps) {
   const { records, loading, error, updateCriminalRecord } = useCriminalRecords();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(null);
   const [filters, setFilters] = useState<{ [key: string]: string }>({});
   const [showFilters, setShowFilters] = useState(false);
-  const [editingRecord, setEditingRecord] = useState(null);
-  const [viewingRecord, setViewingRecord] = useState(null);
+  const [editingRecord, setEditingRecord] = useState<CriminalRecord | null>(null);
+  const [viewingRecord, setViewingRecord] = useState<CriminalRecord | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  // Ensure all records have IDs with proper typing
+  const recordsWithIds = useMemo(() => {
+    return records.map((record, index) => ({
+      ...record,
+      id: record.id || `record-${index}-${Math.random().toString(36).substr(2, 9)}`
+    })) as CriminalRecord[];
+  }, [records]);
 
   // Toggle row expansion
   const toggleRowExpansion = (id: string) => {
@@ -242,19 +292,21 @@ export function CriminalsTable() {
 
   // Filter and sort records
   const filteredAndSortedRecords = useMemo(() => {
-    let filteredRecords = records.filter(record => {
+    let filteredRecords = recordsWithIds.filter(record => {
       // Search across multiple fields
       const matchesSearch = 
         !searchTerm || 
-        record.case_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.crime_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.last_location?.toLowerCase().includes(searchTerm.toLowerCase());
+        (record.case_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (record.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (record.crime_type || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (record.last_location || '').toLowerCase().includes(searchTerm.toLowerCase());
 
       // Apply column filters
       const matchesFilters = Object.entries(filters).every(([key, value]) => {
         if (!value) return true;
-        return record[key]?.toString().toLowerCase().includes(value.toLowerCase());
+        const recordValue = record[key];
+        return recordValue !== undefined && recordValue !== null && 
+               recordValue.toString().toLowerCase().includes(value.toLowerCase());
       });
 
       return matchesSearch && matchesFilters;
@@ -263,16 +315,20 @@ export function CriminalsTable() {
     // Apply sorting
     if (sortConfig !== null) {
       filteredRecords.sort((a, b) => {
-        const aValue = a[sortConfig.key as keyof typeof a];
-        const bValue = b[sortConfig.key as keyof typeof b];
+        const aValue = a[sortConfig.key as keyof CriminalRecord];
+        const bValue = b[sortConfig.key as keyof CriminalRecord];
         
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
         
-        if (aValue < bValue) {
+        // Convert to string for comparison
+        const aString = aValue.toString();
+        const bString = bValue.toString();
+        
+        if (aString < bString) {
           return sortConfig.direction === 'ascending' ? -1 : 1;
         }
-        if (aValue > bValue) {
+        if (aString > bString) {
           return sortConfig.direction === 'ascending' ? 1 : -1;
         }
         return 0;
@@ -280,7 +336,7 @@ export function CriminalsTable() {
     }
 
     return filteredRecords;
-  }, [records, searchTerm, sortConfig, filters]);
+  }, [recordsWithIds, searchTerm, sortConfig, filters]);
 
   // Handle sorting
   const handleSort = (key: string) => {
@@ -303,9 +359,10 @@ export function CriminalsTable() {
   };
 
   // Handle edit save
-  const handleSaveEdit = async (updatedData: any) => {
+  const handleSaveEdit = async (updatedData: CriminalRecord) => {
     try {
-      await updateCriminalRecord(updatedData);
+      const { id, ...updates } = updatedData;
+      await updateCriminalRecord(Number(id), updates);  
       setEditingRecord(null);
     } catch (error) {
       console.error('Error updating record:', error);
@@ -314,8 +371,10 @@ export function CriminalsTable() {
   };
 
   // Get unique values for filter dropdowns
-  const uniqueValues = (key: string) => {
-    return Array.from(new Set(records.map(record => record[key] || '').filter(Boolean))).sort();
+  const uniqueValues = (key: keyof CriminalRecord) => {
+    return Array.from(
+      new Set(recordsWithIds.map(record => record[key] || '').filter(Boolean))
+    ).sort() as string[];
   };
 
   if (loading) return <div className="flex justify-center items-center h-64">Loading...</div>;
@@ -326,7 +385,7 @@ export function CriminalsTable() {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Criminal Database</h2>
         <div className="text-sm text-gray-500">
-          {filteredAndSortedRecords.length} of {records.length} records
+          {filteredAndSortedRecords.length} of {recordsWithIds.length} records
         </div>
       </div>
 
@@ -454,8 +513,8 @@ export function CriminalsTable() {
               </tr>
             ) : (
               filteredAndSortedRecords.map((record) => (
-                <>
-                  <tr key={record.id} className="border-b border-gray-100 hover:bg-gray-50">
+                <Fragment key={record.id}>
+                  <tr className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <button
                         onClick={() => toggleRowExpansion(record.id)}
@@ -482,7 +541,7 @@ export function CriminalsTable() {
                         record.current_status === 'Wanted' ? 'bg-red-100 text-red-800' :
                         'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {record.current_status}
+                        {record.current_status || 'Unknown'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -501,6 +560,15 @@ export function CriminalsTable() {
                         >
                           <Edit className="h-4 w-4" />
                         </button>
+                        {onAskAI && (
+                          <button
+                            onClick={() => onAskAI(record)}
+                            className="p-1 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded"
+                            title="Ask AI Analysis"
+                          >
+                            <Brain className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -516,7 +584,7 @@ export function CriminalsTable() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))
             )}
           </tbody>

@@ -1,5 +1,6 @@
 // src/components/PageLayout.tsx
 import { Shield } from "lucide-react";
+import Chatbot from "./Chatbot"; // Import the Chatbot component
 
 interface PageLayoutProps {
   title: string;
@@ -36,6 +37,9 @@ export function PageLayout({ title, subtitle, children }: PageLayoutProps) {
           </p>
         </div>
       </div>
+      
+      {/* Add Chatbot here - outside the main container */}
+      <Chatbot />
     </div>
   );
 }
