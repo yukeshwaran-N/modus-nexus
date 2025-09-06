@@ -1,40 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* ModusMapping Law Enforcement Design System 
+   Professional, authoritative, accessible design for law enforcement applications
 */
 
 @layer base {
   :root {
+    /* Core Law Enforcement Color Palette */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
+    --foreground: 210 11% 15%;
+    
+    /* Professional Navy Blue Primary */
+    --primary: 220 91% 33%;
+    --primary-foreground: 0 0% 98%;
+    --primary-hover: 220 91% 28%;
+    --primary-light: 220 91% 85%;
+    
+    /* Sophisticated Gray Secondary */
+    --secondary: 210 6% 93%;
+    --secondary-foreground: 210 11% 15%;
+    --secondary-hover: 210 6% 88%;
+    
+    /* Professional Card System */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --card-foreground: 210 11% 15%;
+    --card-border: 210 20% 90%;
+    
+    /* Subtle Accents */
+    --muted: 210 10% 96%;
+    --muted-foreground: 210 6% 46%;
+    
+    /* Status Colors */
+    --accent: 142 76% 36%;
+    --accent-foreground: 0 0% 98%;
+    
+    --warning: 45 93% 47%;
+    --warning-foreground: 210 11% 15%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    
+    /* Interactive Elements */
+    --border: 210 20% 90%;
+    --input: 210 20% 96%;
+    --ring: 220 91% 33%;
+    
+    /* Sidebar Specific */
+    --sidebar-background: 210 11% 15%;
+    --sidebar-foreground: 210 6% 93%;
+    --sidebar-primary: 220 91% 40%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 210 11% 20%;
+    --sidebar-accent-foreground: 210 6% 93%;
+    --sidebar-border: 210 11% 25%;
+    
+    /* Law Enforcement Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(220 91% 33%), hsl(220 91% 28%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 10% 98%));
+    --gradient-authority: linear-gradient(135deg, hsl(210 11% 15%), hsl(210 11% 25%));
+    
+    /* Professional Shadows */
+    --shadow-sm: 0 1px 2px hsl(220 91% 33% / 0.05);
+    --shadow-md: 0 4px 6px hsl(220 91% 33% / 0.07), 0 2px 4px hsl(220 91% 33% / 0.06);
+    --shadow-lg: 0 10px 15px hsl(220 91% 33% / 0.1), 0 4px 6px hsl(220 91% 33% / 0.05);
+    --shadow-authority: 0 8px 25px hsl(210 11% 15% / 0.15);
+    
+    /* Animations */
+    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
     --radius: 0.5rem;
 
@@ -100,6 +137,31 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-inter;
+    font-feature-settings: "cv11", "ss01";
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Professional Law Enforcement Components */
+  .law-enforcement-card {
+    @apply bg-card border border-card-border rounded-lg shadow-sm hover:shadow-md transition-all duration-200;
+  }
+  
+  .authority-gradient {
+    background: var(--gradient-authority);
+  }
+  
+  .data-table-row {
+    @apply border-b border-border hover:bg-muted/50 transition-colors;
+  }
+  
+  .professional-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .search-highlight {
+    @apply bg-primary-light text-primary-foreground px-1 rounded;
   }
 }
