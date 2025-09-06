@@ -1,138 +1,71 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ModusMapping Tamil Nadu Police Design System 
-   Official Government Application for Law Enforcement
-*/
+/* ModusMapping - Clean Modern Design System */
 
 @layer base {
   :root {
-    /* Tamil Nadu Police Official Color Palette */
-    --background: 0 0% 98%;
-    --foreground: 235 20% 15%;
+    /* Clean Light Color Palette */
+    --background: 0 0% 98%;         /* Light gray background */
+    --foreground: 240 5% 26%;       /* Soft dark gray for text */
     
-    /* Deep Navy Blue Primary - Authority & Trust */
-    --primary: 235 100% 30%;
-    --primary-foreground: 0 0% 98%;
-    --primary-hover: 235 100% 25%;
-    --primary-light: 235 100% 85%;
+    /* Primary - Professional Blue */
+    --primary: 213 100% 50%;        /* Bright blue like the example */
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 213 100% 45%;
     
-    /* Maroon Secondary - Authority & Seriousness */
-    --secondary: 0 100% 25%;
-    --secondary-foreground: 0 0% 98%;
-    --secondary-hover: 0 100% 20%;
+    /* Secondary - Light Gray */
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 240 5% 26%;
+    --secondary-hover: 0 0% 92%;
     
-    /* Gold Accent - Prestige & Achievement */
-    --accent: 51 100% 50%;
-    --accent-foreground: 235 20% 15%;
+    /* Accent - Green for positive actions */
+    --accent: 142 76% 36%;
+    --accent-foreground: 0 0% 100%;
     
-    /* Professional Card System */
-    --card: 0 0% 100%;
-    --card-foreground: 235 20% 15%;
-    --card-border: 215 15% 85%;
+    /* Card & Surface */
+    --card: 0 0% 100%;              /* Pure white cards */
+    --card-foreground: 240 5% 26%;
+    --card-border: 220 13% 91%;
     
     /* Neutral Grays */
-    --muted: 215 10% 95%;
-    --muted-foreground: 215 15% 45%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 240 5% 45%;
     
     /* Status Colors */
-    --warning: 45 93% 47%;
-    --warning-foreground: 235 20% 15%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
     
     --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 0 0% 100%;
     
     /* Interactive Elements */
-    --border: 215 15% 85%;
-    --input: 215 10% 96%;
-    --ring: 235 100% 30%;
+    --border: 220 13% 91%;
+    --input: 0 0% 100%;
+    --ring: 213 100% 50%;
     
-    /* Government Sidebar */
-    --sidebar-background: 235 100% 30%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 0 100% 25%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 235 100% 35%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 235 100% 35%;
-    
-    /* Official Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(235 100% 30%), hsl(235 100% 25%));
-    --gradient-authority: linear-gradient(135deg, hsl(235 100% 30%), hsl(0 100% 25%));
-    --gradient-gold: linear-gradient(135deg, hsl(51 100% 50%), hsl(45 100% 45%));
-    
-    /* Official Shadows */
-    --shadow-sm: 0 1px 2px hsl(235 100% 30% / 0.08);
-    --shadow-md: 0 4px 6px hsl(235 100% 30% / 0.10), 0 2px 4px hsl(235 100% 30% / 0.08);
-    --shadow-lg: 0 10px 15px hsl(235 100% 30% / 0.15), 0 4px 6px hsl(235 100% 30% / 0.08);
-    --shadow-authority: 0 8px 25px hsl(235 100% 30% / 0.20);
-    --shadow-gold: 0 4px 12px hsl(51 100% 50% / 0.25);
-    
-    /* Professional Animations */
-    --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-authority: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    /* SIDEBAR - Clean & Light */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 5% 26%;
+    --sidebar-primary: 213 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 240 5% 26%;
+    --sidebar-border: 220 13% 91%;
+    
+    /* Modern Shadows */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    
+    /* Smooth Animations */
+    --transition-smooth: all 0.2s ease-in-out;
+    --radius: 0.75rem;
   }
 }
 
@@ -143,71 +76,146 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Roboto', 'Noto Sans Tamil', sans-serif;
-    font-feature-settings: "cv11", "ss01";
-    font-variant-numeric: tabular-nums;
+    font-family: 'Inter', 'Noto Sans Tamil', sans-serif;
     line-height: 1.6;
   }
 }
 
 @layer components {
-  /* Tamil Nadu Police Official Components */
-  .government-card {
-    @apply bg-card border border-card-border rounded-lg shadow-md hover:shadow-lg;
-    transition: var(--transition-authority);
+  /* Modern Components */
+  .modern-card {
+    @apply bg-card rounded-xl shadow-sm border border-border p-6 hover:shadow-md transition-all duration-200;
   }
   
-  .authority-gradient {
-    background: var(--gradient-authority);
+  .metric-card {
+    @apply modern-card text-center p-4;
   }
   
-  .gold-gradient {
-    background: var(--gradient-gold);
+  .metric-value {
+    @apply text-3xl font-bold text-foreground mb-1;
+  }
+  
+  .metric-label {
+    @apply text-sm text-muted-foreground uppercase tracking-wide;
   }
   
   .data-table-row {
-    @apply border-b border-border hover:bg-muted/30 transition-colors;
-    background: linear-gradient(90deg, transparent 0%, hsl(var(--muted) / 0.3) 50%, transparent 100%);
+    @apply border-b border-border hover:bg-muted/50 transition-colors;
   }
   
-  .data-table-row:nth-child(even) {
-    @apply bg-muted/20;
-  }
-  
-  .official-badge {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide;
-    box-shadow: var(--shadow-sm);
-  }
-  
-  .search-highlight {
-    @apply bg-accent text-accent-foreground px-1 rounded font-medium;
-  }
-  
-  .government-header {
-    @apply text-xl font-semibold text-foreground;
-    font-family: 'Noto Sans', 'Noto Sans Tamil', sans-serif;
-    letter-spacing: 0.025em;
-  }
-  
-  .official-button {
-    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-lg;
+  .clean-button {
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-xl transition-all duration-200;
     @apply bg-primary text-primary-foreground hover:bg-primary-hover;
-    @apply border-2 border-transparent hover:border-accent;
-    @apply shadow-md hover:shadow-lg;
-    transition: var(--transition-authority);
-    min-height: 44px; /* WCAG touch target */
+    @apply shadow-sm hover:shadow-md;
   }
   
-  .official-button:focus-visible {
-    @apply outline-none ring-2 ring-accent ring-offset-2;
+  .clean-button:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2;
   }
   
   .secondary-button {
-    @apply official-button bg-secondary text-secondary-foreground hover:bg-secondary-hover;
+    @apply clean-button bg-secondary text-secondary-foreground hover:bg-secondary-hover;
   }
   
   .accent-button {
-    @apply official-button bg-accent text-accent-foreground hover:bg-accent/90;
-    @apply shadow-gold;
+    @apply clean-button bg-accent text-accent-foreground hover:bg-accent/90;
+  }
+
+  /* Sidebar specific styles */
+  .sidebar-menu-button-active {
+    @apply bg-sidebar-primary text-sidebar-primary-foreground shadow-sm;
+  }
+  
+  .sidebar-menu-button-inactive {
+    @apply text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(213, 100%, 50%), hsl(213, 100%, 40%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+/* Add these styles to your existing index.css */
+
+@layer utilities {
+  .sidebar-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .sidebar-item-hover {
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .sidebar-item-hover:hover {
+    transform: translateX(4px);
+  }
+  
+  .sidebar-scale {
+    transition: transform 0.2s ease-in-out;
+  }
+  
+  .sidebar-scale:hover {
+    transform: scale(1.02);
+  }
+}
+
+/* Smooth transitions for sidebar elements */
+.sidebar-content-enter {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+.sidebar-content-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.sidebar-content-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.sidebar-content-exit-active {
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+/* Add these to your existing index.css */
+
+@layer components {
+  .modern-card {
+    @apply bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200;
+  }
+  
+  .status-indicator {
+    @apply w-2 h-2 rounded-full;
+  }
+  
+  .status-online {
+    @apply status-indicator bg-green-500;
+  }
+  
+  .status-offline {
+    @apply status-indicator bg-red-500;
+  }
+  
+  .upload-area {
+    @apply border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-blue-400 transition-colors;
+  }
+  
+  .gradient-bg {
+    @apply bg-gradient-to-r from-blue-50 to-blue-100;
+  }
+}
+
+@layer utilities {
+  .text-shadow-sm {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   }
 }

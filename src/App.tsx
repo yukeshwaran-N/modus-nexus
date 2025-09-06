@@ -1,27 +1,43 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
+import { useState } from 'react';
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from '@/components/AppSidebar';
+import Dashboard from '@/components/Dashboard';
+import { CriminalsTable } from '@/components/CriminalsTable';
+import { CrimeHeatmap } from '@/components/CrimeHeatmap';
+import { CrimeInsightsPanel } from '@/components/CrimeInsightsPanel';
+import { CriminalNetworkGraph } from '@/components/CriminalNetworkGraph';
+import { LiveFeedPanel } from '@/components/LiveFeedPanel';
 
-const queryClient = new QueryClient();
+function App() {
+  const [activeView, setActiveView] = useState('dashboard');
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+  const renderContent = () => {
+    switch (activeView) {
+      case 'criminals':
+        return <CriminalsTable />;
+      case 'maps':
+        return <CrimeHeatmap />;
+      case 'insights':
+        return <CrimeInsightsPanel />;
+      case 'network':
+        return <CriminalNetworkGraph />;
+      case 'live':
+        return <LiveFeedPanel />;
+      default:
+        return <Dashboard />;
+    }
+  };
+
+  return (
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AppSidebar activeView={activeView} setActiveView={setActiveView} />
+        <div className="flex-1">
+          {renderContent()}
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
 
 export default App;
