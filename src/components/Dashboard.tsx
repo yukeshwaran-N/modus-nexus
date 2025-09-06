@@ -10,9 +10,7 @@ export default function Dashboard() {
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg">
               <Shield className="h-8 w-8" />
             </div>
-            <h1 className="text-5xl font-bold text-gray-800">
-              ModusMapping
-            </h1>
+            <h1 className="text-5xl font-bold text-gray-800">ModusMapping</h1>
           </div>
           <p className="text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
             Advanced criminal intelligence and pattern analysis for Tamil Nadu Police
@@ -163,9 +161,29 @@ export default function Dashboard() {
             </div>
             <h2 className="text-2xl font-bold text-gray-800">Upload Case Data</h2>
             <p className="text-gray-600">Drag and drop your files here or click to select evidence data</p>
-            <button className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              id="fileUpload"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) {
+                  const files = Array.from(e.target.files);
+                  console.log("Selected files:", files);
+                  alert(`You selected ${files.length} file(s).`);
+                }
+              }}
+            />
+
+            {/* Custom Button */}
+            <label
+              htmlFor="fileUpload"
+              className="cursor-pointer bg-gray-100 text-gray-700 px-6 py-3 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors inline-block"
+            >
               Select Files
-            </button>
+            </label>
           </div>
         </div>
 

@@ -7,26 +7,30 @@ import { CrimeHeatmap } from '@/components/CrimeHeatmap';
 import { CrimeInsightsPanel } from '@/components/CrimeInsightsPanel';
 import { CriminalNetworkGraph } from '@/components/CriminalNetworkGraph';
 import { LiveFeedPanel } from '@/components/LiveFeedPanel';
+import { CriminalDataEntry } from "@/components/CriminalDataEntry";
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
 
   const renderContent = () => {
-    switch (activeView) {
-      case 'criminals':
-        return <CriminalsTable />;
-      case 'maps':
-        return <CrimeHeatmap />;
-      case 'insights':
-        return <CrimeInsightsPanel />;
-      case 'network':
-        return <CriminalNetworkGraph />;
-      case 'live':
-        return <LiveFeedPanel />;
-      default:
-        return <Dashboard />;
-    }
-  };
+  switch (activeView) {
+    case "criminals":
+      return <CriminalsTable />;
+    case "maps":
+      return <CrimeHeatmap />;
+    case "insights":
+      return <CrimeInsightsPanel />;
+    case "network":
+      return <CriminalNetworkGraph />;
+    case "live":
+      return <LiveFeedPanel />;
+    case "data-entry":
+      return <CriminalDataEntry />;
+    default:
+      return <Dashboard />;
+  }
+};
+
 
   return (
     <SidebarProvider>

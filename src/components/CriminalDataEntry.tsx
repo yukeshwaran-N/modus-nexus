@@ -1,8 +1,9 @@
 // src/components/CriminalDataEntry.tsx
-import { useState, useRef } from 'react';
+import { useState, useRef, forwardRef } from 'react';
 import { Upload, FileText, UserPlus, X, Download, FileUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
+// Criminal record type
 interface CriminalData {
   case_id: string;
   name: string;
@@ -44,7 +45,8 @@ export function CriminalDataEntry() {
   const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const criminalPhotoInputRef = useRef<HTMLInputElement>(null);
+  const evidenceInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange = (field: keyof CriminalData, value: any) => {
@@ -135,8 +137,6 @@ export function CriminalDataEntry() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Here you would typically use a library like xlsx to parse Excel files
-    // For now, we'll show a placeholder implementation
     alert('Excel import functionality would be implemented here. File: ' + file.name);
   };
 
@@ -144,11 +144,11 @@ export function CriminalDataEntry() {
     setFormData({});
     setCriminalPhoto(null);
     setEvidenceFiles([]);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (criminalPhotoInputRef.current) criminalPhotoInputRef.current.value = '';
+    if (evidenceInputRef.current) evidenceInputRef.current.value = '';
   };
 
   const downloadTemplate = () => {
-    // Create and download Excel template
     const templateData = [
       ['case_id', 'name', 'age', 'gender', 'phone_number', 'email', 'nationality', 
        'crime_type', 'modus_operandi', 'tools_used', 'associates', 'connected_criminals',
@@ -219,7 +219,8 @@ export function CriminalDataEntry() {
                 onSubmit={handleManualSubmit}
                 isSubmitting={isSubmitting}
                 uploadProgress={uploadProgress}
-                fileInputRef={fileInputRef}
+                criminalPhotoInputRef={criminalPhotoInputRef}
+                evidenceInputRef={evidenceInputRef}
               />
             ) : (
               <ExcelImport
@@ -247,7 +248,8 @@ function ManualEntryForm({
   onSubmit,
   isSubmitting,
   uploadProgress,
-  fileInputRef
+  criminalPhotoInputRef,
+  evidenceInputRef
 }: any) {
   return (
     <form onSubmit={onSubmit} className="space-y-6">
@@ -344,7 +346,7 @@ function ManualEntryForm({
             onChange={onCriminalPhotoUpload}
             file={criminalPhoto}
             label="Upload Criminal Photo"
-            ref={fileInputRef}
+            inputRef={criminalPhotoInputRef}
           />
         </div>
 
@@ -358,6 +360,7 @@ function ManualEntryForm({
             files={evidenceFiles}
             onRemove={onRemoveEvidence}
             label="Upload Evidence Files"
+            inputRef={evidenceInputRef}
           />
         </div>
       </div>
@@ -466,14 +469,21 @@ function SelectField({ label, value, onChange, options }: any) {
   );
 }
 
-function FileUpload({ accept, multiple, onChange, file, files, onRemove, label, ref }: any) {
+// Fixed FileUpload component
+function FileUpload({ accept, multiple, onChange, file, files, onRemove, label, inputRef }: any) {
+  const handleButtonClick = () => {
+    if (inputRef && inputRef.current) {
+      inputRef.current.click();
+    }
+  };
+
   return (
     <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-blue-400 transition-colors">
       <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
       <p className="text-sm text-gray-600 mb-3">{label}</p>
       
       <input
-        ref={ref}
+        ref={inputRef}
         type="file"
         accept={accept}
         multiple={multiple}
@@ -483,7 +493,7 @@ function FileUpload({ accept, multiple, onChange, file, files, onRemove, label, 
       
       <button
         type="button"
-        onClick={() => ref?.current?.click()}
+        onClick={handleButtonClick}
         className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-200"
       >
         Choose Files

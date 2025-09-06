@@ -1,6 +1,8 @@
 // src/components/ui/sidebar.tsx
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button";
+import { Menu } from "lucide-react";
 
 interface SidebarContextType {
   isCollapsed: boolean;
@@ -163,3 +165,19 @@ export const SidebarFooter = React.forwardRef<
   />
 ))
 SidebarFooter.displayName = "SidebarFooter"
+export const SidebarTrigger = ({ className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => {
+  const { isCollapsed, setIsCollapsed } = useSidebar();
+
+  return (
+    <Button
+      onClick={() => setIsCollapsed(!isCollapsed)}
+      variant="ghost"
+      className={`p-2 ${className}`}
+      {...props}
+    >
+      <Menu className="h-5 w-5" />
+    </Button>
+    
+  );
+};
+SidebarTrigger.displayName = "SidebarTrigger";
