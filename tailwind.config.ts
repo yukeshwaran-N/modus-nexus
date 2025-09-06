@@ -14,7 +14,10 @@ export default {
     },
     extend: {
       fontFamily: {
-        inter: ['Inter', 'sans-serif'],
+        'noto-sans': ['Noto Sans', 'Noto Sans Tamil', 'sans-serif'],
+        'noto-tamil': ['Noto Sans Tamil', 'Noto Sans', 'sans-serif'],
+        'roboto': ['Roboto', 'Noto Sans Tamil', 'sans-serif'],
+        'inter': ['Inter', 'Noto Sans Tamil', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",

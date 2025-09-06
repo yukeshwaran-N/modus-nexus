@@ -1,77 +1,82 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ModusMapping Law Enforcement Design System 
-   Professional, authoritative, accessible design for law enforcement applications
+/* ModusMapping Tamil Nadu Police Design System 
+   Official Government Application for Law Enforcement
 */
 
 @layer base {
   :root {
-    /* Core Law Enforcement Color Palette */
-    --background: 0 0% 100%;
-    --foreground: 210 11% 15%;
+    /* Tamil Nadu Police Official Color Palette */
+    --background: 0 0% 98%;
+    --foreground: 235 20% 15%;
     
-    /* Professional Navy Blue Primary */
-    --primary: 220 91% 33%;
+    /* Deep Navy Blue Primary - Authority & Trust */
+    --primary: 235 100% 30%;
     --primary-foreground: 0 0% 98%;
-    --primary-hover: 220 91% 28%;
-    --primary-light: 220 91% 85%;
+    --primary-hover: 235 100% 25%;
+    --primary-light: 235 100% 85%;
     
-    /* Sophisticated Gray Secondary */
-    --secondary: 210 6% 93%;
-    --secondary-foreground: 210 11% 15%;
-    --secondary-hover: 210 6% 88%;
+    /* Maroon Secondary - Authority & Seriousness */
+    --secondary: 0 100% 25%;
+    --secondary-foreground: 0 0% 98%;
+    --secondary-hover: 0 100% 20%;
+    
+    /* Gold Accent - Prestige & Achievement */
+    --accent: 51 100% 50%;
+    --accent-foreground: 235 20% 15%;
     
     /* Professional Card System */
     --card: 0 0% 100%;
-    --card-foreground: 210 11% 15%;
-    --card-border: 210 20% 90%;
+    --card-foreground: 235 20% 15%;
+    --card-border: 215 15% 85%;
     
-    /* Subtle Accents */
-    --muted: 210 10% 96%;
-    --muted-foreground: 210 6% 46%;
+    /* Neutral Grays */
+    --muted: 215 10% 95%;
+    --muted-foreground: 215 15% 45%;
     
     /* Status Colors */
-    --accent: 142 76% 36%;
-    --accent-foreground: 0 0% 98%;
-    
     --warning: 45 93% 47%;
-    --warning-foreground: 210 11% 15%;
+    --warning-foreground: 235 20% 15%;
     
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
     
     /* Interactive Elements */
-    --border: 210 20% 90%;
-    --input: 210 20% 96%;
-    --ring: 220 91% 33%;
+    --border: 215 15% 85%;
+    --input: 215 10% 96%;
+    --ring: 235 100% 30%;
     
-    /* Sidebar Specific */
-    --sidebar-background: 210 11% 15%;
-    --sidebar-foreground: 210 6% 93%;
-    --sidebar-primary: 220 91% 40%;
+    /* Government Sidebar */
+    --sidebar-background: 235 100% 30%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 0 100% 25%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 210 11% 20%;
-    --sidebar-accent-foreground: 210 6% 93%;
-    --sidebar-border: 210 11% 25%;
+    --sidebar-accent: 235 100% 35%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 235 100% 35%;
     
-    /* Law Enforcement Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(220 91% 33%), hsl(220 91% 28%));
-    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 10% 98%));
-    --gradient-authority: linear-gradient(135deg, hsl(210 11% 15%), hsl(210 11% 25%));
+    /* Official Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(235 100% 30%), hsl(235 100% 25%));
+    --gradient-authority: linear-gradient(135deg, hsl(235 100% 30%), hsl(0 100% 25%));
+    --gradient-gold: linear-gradient(135deg, hsl(51 100% 50%), hsl(45 100% 45%));
     
-    /* Professional Shadows */
-    --shadow-sm: 0 1px 2px hsl(220 91% 33% / 0.05);
-    --shadow-md: 0 4px 6px hsl(220 91% 33% / 0.07), 0 2px 4px hsl(220 91% 33% / 0.06);
-    --shadow-lg: 0 10px 15px hsl(220 91% 33% / 0.1), 0 4px 6px hsl(220 91% 33% / 0.05);
-    --shadow-authority: 0 8px 25px hsl(210 11% 15% / 0.15);
+    /* Official Shadows */
+    --shadow-sm: 0 1px 2px hsl(235 100% 30% / 0.08);
+    --shadow-md: 0 4px 6px hsl(235 100% 30% / 0.10), 0 2px 4px hsl(235 100% 30% / 0.08);
+    --shadow-lg: 0 10px 15px hsl(235 100% 30% / 0.15), 0 4px 6px hsl(235 100% 30% / 0.08);
+    --shadow-authority: 0 8px 25px hsl(235 100% 30% / 0.20);
+    --shadow-gold: 0 4px 12px hsl(51 100% 50% / 0.25);
     
-    /* Animations */
+    /* Professional Animations */
     --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-authority: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
     --radius: 0.5rem;
 
@@ -137,31 +142,72 @@
   }
 
   body {
-    @apply bg-background text-foreground font-inter;
+    @apply bg-background text-foreground;
+    font-family: 'Roboto', 'Noto Sans Tamil', sans-serif;
     font-feature-settings: "cv11", "ss01";
     font-variant-numeric: tabular-nums;
+    line-height: 1.6;
   }
 }
 
 @layer components {
-  /* Professional Law Enforcement Components */
-  .law-enforcement-card {
-    @apply bg-card border border-card-border rounded-lg shadow-sm hover:shadow-md transition-all duration-200;
+  /* Tamil Nadu Police Official Components */
+  .government-card {
+    @apply bg-card border border-card-border rounded-lg shadow-md hover:shadow-lg;
+    transition: var(--transition-authority);
   }
   
   .authority-gradient {
     background: var(--gradient-authority);
   }
   
-  .data-table-row {
-    @apply border-b border-border hover:bg-muted/50 transition-colors;
+  .gold-gradient {
+    background: var(--gradient-gold);
   }
   
-  .professional-badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  .data-table-row {
+    @apply border-b border-border hover:bg-muted/30 transition-colors;
+    background: linear-gradient(90deg, transparent 0%, hsl(var(--muted) / 0.3) 50%, transparent 100%);
+  }
+  
+  .data-table-row:nth-child(even) {
+    @apply bg-muted/20;
+  }
+  
+  .official-badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide;
+    box-shadow: var(--shadow-sm);
   }
   
   .search-highlight {
-    @apply bg-primary-light text-primary-foreground px-1 rounded;
+    @apply bg-accent text-accent-foreground px-1 rounded font-medium;
+  }
+  
+  .government-header {
+    @apply text-xl font-semibold text-foreground;
+    font-family: 'Noto Sans', 'Noto Sans Tamil', sans-serif;
+    letter-spacing: 0.025em;
+  }
+  
+  .official-button {
+    @apply inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-lg;
+    @apply bg-primary text-primary-foreground hover:bg-primary-hover;
+    @apply border-2 border-transparent hover:border-accent;
+    @apply shadow-md hover:shadow-lg;
+    transition: var(--transition-authority);
+    min-height: 44px; /* WCAG touch target */
+  }
+  
+  .official-button:focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2;
+  }
+  
+  .secondary-button {
+    @apply official-button bg-secondary text-secondary-foreground hover:bg-secondary-hover;
+  }
+  
+  .accent-button {
+    @apply official-button bg-accent text-accent-foreground hover:bg-accent/90;
+    @apply shadow-gold;
   }
 }

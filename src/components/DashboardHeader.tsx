@@ -16,99 +16,69 @@ export function DashboardHeader() {
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <header className="bg-card border-b border-card-border px-6 py-4">
-      <div className="flex items-center justify-between">
-        {/* Left Section - Sidebar Toggle & Search */}
-        <div className="flex items-center gap-4 flex-1">
-          <SidebarTrigger className="h-9 w-9" />
-          
-          <div className="relative max-w-md flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search criminals, cases, or locations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-input border-border focus:ring-2 focus:ring-primary focus:border-transparent"
-            />
-          </div>
+    <header className="h-16 border-b-2 border-primary bg-gradient-to-r from-background to-muted px-6 flex items-center justify-between shadow-md">
+      <div className="flex items-center gap-4">
+        <SidebarTrigger className="text-primary hover:text-secondary transition-colors" />
+        <h1 className="government-header text-primary">Law Enforcement Dashboard</h1>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-primary" />
+          <Input
+            placeholder="Search criminals, cases, locations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-12 w-96 h-12 bg-background/90 backdrop-blur-sm border-2 border-primary/20 focus:border-primary text-base font-medium rounded-lg shadow-md"
+          />
         </div>
 
-        {/* Right Section - Notifications & Profile */}
-        <div className="flex items-center gap-3">
-          {/* Language Switcher */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Globe className="h-4 w-4" />
-                EN
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>English</DropdownMenuItem>
-              <DropdownMenuItem>हिन्दी (Hindi)</DropdownMenuItem>
-              <DropdownMenuItem>Español</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {/* Language Switcher */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2 h-12 border-primary text-primary hover:bg-primary hover:text-primary-foreground">
+              <Globe className="h-5 w-5" />
+              தமிழ்
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem>English</DropdownMenuItem>
+            <DropdownMenuItem>தமிழ் (Tamil)</DropdownMenuItem>
+            <DropdownMenuItem>हिन्दी (Hindi)</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-          {/* Notifications */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="relative">
-                <Bell className="h-4 w-4" />
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs bg-destructive text-destructive-foreground">
-                  3
-                </Badge>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <div className="p-3 border-b">
-                <h3 className="font-semibold">Recent Alerts</h3>
-              </div>
-              <DropdownMenuItem className="p-3">
-                <div>
-                  <p className="font-medium">High-risk suspect identified</p>
-                  <p className="text-sm text-muted-foreground">John Doe flagged in downtown area</p>
-                  <p className="text-xs text-muted-foreground">2 minutes ago</p>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="p-3">
-                <div>
-                  <p className="font-medium">New criminal association detected</p>
-                  <p className="text-sm text-muted-foreground">Network analysis reveals new connection</p>
-                  <p className="text-xs text-muted-foreground">15 minutes ago</p>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="p-3">
-                <div>
-                  <p className="font-medium">Case update required</p>
-                  <p className="text-sm text-muted-foreground">Case #2024-0156 needs review</p>
-                  <p className="text-xs text-muted-foreground">1 hour ago</p>
-                </div>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {/* Notifications */}
+        <Button variant="ghost" size="sm" className="relative h-12 w-12 rounded-full hover:bg-accent/20">
+          <Bell className="h-6 w-6 text-primary" />
+          <Badge className="absolute -top-1 -right-1 h-6 w-6 p-0 text-xs bg-secondary text-secondary-foreground shadow-sm">
+            3
+          </Badge>
+        </Button>
 
-          {/* User Profile */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <User className="h-4 w-4" />
-                <span className="hidden sm:inline">Officer Johnson</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <div className="p-3 border-b">
-                <p className="font-medium">Officer Sarah Johnson</p>
-                <p className="text-sm text-muted-foreground">Investigator • Badge #4521</p>
+        {/* User Profile */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-12 px-4 rounded-lg border-2 border-transparent hover:border-accent hover:bg-accent/10">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground mr-3">
+                <User className="h-5 w-5" />
               </div>
-              <DropdownMenuItem>Profile Settings</DropdownMenuItem>
-              <DropdownMenuItem>Security Preferences</DropdownMenuItem>
-              <DropdownMenuItem>Activity Log</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">Sign Out</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+              <span className="hidden sm:inline font-semibold text-primary">Inspector Kumar</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <div className="p-3 border-b bg-gradient-to-r from-primary/5 to-secondary/5">
+              <p className="font-bold text-primary">Inspector Rajesh Kumar</p>
+              <p className="text-sm text-muted-foreground">Tamil Nadu Police • Badge #TN4521</p>
+              <p className="text-xs text-accent">District Crime Branch</p>
+            </div>
+            <DropdownMenuItem className="font-medium">Profile Settings</DropdownMenuItem>
+            <DropdownMenuItem className="font-medium">Security Preferences</DropdownMenuItem>
+            <DropdownMenuItem className="font-medium">Activity Log</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-destructive font-medium">Sign Out</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

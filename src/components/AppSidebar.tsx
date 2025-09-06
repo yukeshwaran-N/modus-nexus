@@ -75,15 +75,15 @@ export function AppSidebar({ activeView, setActiveView }: AppSidebarProps) {
 
   return (
     <Sidebar className={`authority-gradient ${collapsed ? "w-16" : "w-64"} border-r border-sidebar-border`}>
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="border-b border-sidebar-border p-4 bg-gradient-to-r from-sidebar-background to-secondary">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary rounded-lg">
-            <Shield className="h-6 w-6 text-primary-foreground" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent text-accent-foreground shadow-gold">
+            <Shield className="h-6 w-6" />
           </div>
           {!collapsed && (
             <div>
-              <h1 className="text-lg font-semibold text-sidebar-foreground">ModusMapping</h1>
-              <p className="text-xs text-sidebar-foreground/70">Law Enforcement Analytics</p>
+              <h2 className="text-sm font-bold text-sidebar-foreground font-noto-sans tracking-wide">ModusMapping</h2>
+              <p className="text-xs text-accent font-medium">Tamil Nadu Police</p>
             </div>
           )}
         </div>

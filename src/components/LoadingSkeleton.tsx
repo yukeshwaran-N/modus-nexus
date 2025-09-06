@@ -3,14 +3,14 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 export function LoadingSkeleton() {
   return (
-    <Card className="law-enforcement-card">
-      <CardHeader>
+    <Card className="government-card">
+      <CardHeader className="border-b border-border bg-gradient-to-r from-primary/5 to-secondary/5">
         <div className="flex items-center justify-between">
-          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-7 w-64 bg-primary/20" />
           <div className="flex items-center gap-3">
-            <Skeleton className="h-10 w-64" />
-            <Skeleton className="h-10 w-20" />
-            <Skeleton className="h-10 w-28" />
+            <Skeleton className="h-12 w-96 bg-primary/10" />
+            <Skeleton className="h-10 w-20 bg-primary/10" />
+            <Skeleton className="h-10 w-32 bg-accent/20" />
           </div>
         </div>
       </CardHeader>

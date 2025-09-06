@@ -101,10 +101,10 @@ export function CriminalsTable() {
 
   return (
     <div className="space-y-6">
-      <Card className="law-enforcement-card">
-        <CardHeader>
+      <Card className="government-card">
+        <CardHeader className="border-b border-border bg-gradient-to-r from-primary/5 to-secondary/5">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-semibold">Criminal Database</CardTitle>
+            <CardTitle className="government-header text-primary">Tamil Nadu Police - Criminal Database</CardTitle>
             <div className="flex items-center gap-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -115,11 +115,11 @@ export function CriminalsTable() {
                   className="pl-10 w-64"
                 />
               </div>
-              <Button variant="outline" size="sm">
+               <Button variant="outline" size="sm" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
                 <Filter className="h-4 w-4 mr-2" />
                 Filters
               </Button>
-              <Button variant="default" size="sm">
+              <Button variant="accent" size="sm">
                 Add Criminal
               </Button>
             </div>
@@ -160,12 +160,12 @@ export function CriminalsTable() {
                       <Badge variant="outline">{criminal.associates}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={getRiskBadgeVariant(criminal.riskLevel)}>
+                      <Badge variant={getRiskBadgeVariant(criminal.riskLevel)} className="official-badge">
                         {criminal.riskLevel}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={getStatusBadgeVariant(criminal.status)}>
+                      <Badge variant={getStatusBadgeVariant(criminal.status)} className="official-badge">
                         {criminal.status}
                       </Badge>
                     </TableCell>
