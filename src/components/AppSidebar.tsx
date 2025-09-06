@@ -36,6 +36,12 @@ const navigationItems = [
     description: "Criminal network overview"
   },
   {
+    title: "Data Entry",
+    icon: FileText,
+    id: "data-entry",
+    description: "Add criminal records"
+  },
+  {
     title: "Criminals",
     icon: Users,
     id: "criminals", 
