@@ -1,9 +1,9 @@
 // src/components/CriminalDataEntry.tsx
-import { useState, useRef, forwardRef } from 'react';
+import { useState, useRef } from 'react';
 import { Upload, FileText, UserPlus, X, Download, FileUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-// Criminal record type
+// Criminal record type - based on your database structure
 interface CriminalData {
   case_id: string;
   name: string;
@@ -34,8 +34,9 @@ interface CriminalData {
   country: string;
   risk_level: string;
   threat_level: string;
-  criminal_photo?: File;
-  evidence_files?: File[];
+  criminal_photo_url?: string;
+  evidence_files_urls?: string[];
+  date_added?: string;
 }
 
 export function CriminalDataEntry() {
@@ -68,21 +69,29 @@ export function CriminalDataEntry() {
   };
 
   const uploadFileToStorage = async (file: File, folder: string): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `${folder}/${fileName}`;
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${folder}/${fileName}`;
 
-    const { error } = await supabase.storage
-      .from('criminal-records')
-      .upload(filePath, file);
+      const { error } = await supabase.storage
+        .from('criminal-records')
+        .upload(filePath, file);
 
-    if (error) throw error;
+      if (error) {
+        console.error('Storage upload error:', error);
+        throw error;
+      }
 
-    const { data } = supabase.storage
-      .from('criminal-records')
-      .getPublicUrl(filePath);
+      const { data } = supabase.storage
+        .from('criminal-records')
+        .getPublicUrl(filePath);
 
-    return data.publicUrl;
+      return data.publicUrl;
+    } catch (error) {
+      console.error('File upload failed:', error);
+      throw error;
+    }
   };
 
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -94,40 +103,94 @@ export function CriminalDataEntry() {
       let criminalPhotoUrl = '';
       let evidenceUrls: string[] = [];
 
-      // Upload criminal photo
+      // Upload files if they exist
       if (criminalPhoto) {
-        criminalPhotoUrl = await uploadFileToStorage(criminalPhoto, 'criminal-photos');
-        setUploadProgress(33);
+        try {
+          criminalPhotoUrl = await uploadFileToStorage(criminalPhoto, 'criminal-photos');
+          setUploadProgress(33);
+        } catch (error) {
+          console.warn('Failed to upload criminal photo, continuing without it:', error);
+        }
       }
 
       // Upload evidence files
       if (evidenceFiles.length > 0) {
         for (let i = 0; i < evidenceFiles.length; i++) {
-          const url = await uploadFileToStorage(evidenceFiles[i], 'evidence');
-          evidenceUrls.push(url);
-          setUploadProgress(33 + Math.round((i + 1) / evidenceFiles.length * 33));
+          try {
+            const url = await uploadFileToStorage(evidenceFiles[i], 'evidence');
+            evidenceUrls.push(url);
+            setUploadProgress(33 + Math.round((i + 1) / evidenceFiles.length * 33));
+          } catch (error) {
+            console.warn('Failed to upload evidence file, continuing without it:', error);
+          }
         }
       }
 
-      // Save to database
-      const { error } = await supabase
+      // Prepare data for insertion - only include fields that exist in your table
+      const insertData: Partial<CriminalData> = {
+        case_id: formData.case_id,
+        name: formData.name,
+        age: formData.age,
+        gender: formData.gender,
+        phone_number: formData.phone_number,
+        email: formData.email,
+        nationality: formData.nationality,
+        crime_type: formData.crime_type,
+        modus_operandi: formData.modus_operandi,
+        tools_used: formData.tools_used,
+        associates: formData.associates,
+        connected_criminals: formData.connected_criminals,
+        case_status: formData.case_status,
+        current_status: formData.current_status,
+        last_location: formData.last_location,
+        arrest_date: formData.arrest_date,
+        bail_date: formData.bail_date,
+        bio: formData.bio,
+        total_cases: formData.total_cases,
+        legal_status: formData.legal_status,
+        known_associates: formData.known_associates,
+        case_progress_timeline: formData.case_progress_timeline,
+        address: formData.address,
+        address_line: formData.address_line,
+        city: formData.city,
+        state: formData.state,
+        country: formData.country,
+        risk_level: formData.risk_level,
+        threat_level: formData.threat_level,
+        criminal_photo_url: criminalPhotoUrl || null,
+        evidence_files_urls: evidenceUrls.length > 0 ? evidenceUrls : null,
+        date_added: new Date().toISOString()
+      };
+
+      console.log('Attempting to insert into criminal_records:', insertData);
+
+      // Insert into database
+      const { error, data } = await supabase
         .from('criminal_records')
-        .insert([{
-          ...formData,
-          criminal_photo_url: criminalPhotoUrl,
-          evidence_files_urls: evidenceUrls,
-          date_added: new Date().toISOString()
-        }]);
+        .insert([insertData])
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database insert error:', error);
+        
+        // If RLS error, guide user to fix policies
+        if (error.code === '42501') {
+          throw new Error(
+            'RLS Policy Error: Please go to Supabase Dashboard → Authentication → Policies ' +
+            'and create an INSERT policy for the criminal_records table, or temporarily disable RLS.'
+          );
+        }
+        throw error;
+      }
 
+      console.log('Insert successful:', data);
       setUploadProgress(100);
       alert('Criminal record added successfully!');
       resetForm();
 
     } catch (error: any) {
-      console.error('Error adding criminal record:', error);
-      alert('Error adding record: ' + error.message);
+      console.error('Full error details:', error);
+      alert('Error adding record: ' + (error.message || 'Unknown error. Check console for details.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -469,7 +532,6 @@ function SelectField({ label, value, onChange, options }: any) {
   );
 }
 
-// Fixed FileUpload component
 function FileUpload({ accept, multiple, onChange, file, files, onRemove, label, inputRef }: any) {
   const handleButtonClick = () => {
     if (inputRef && inputRef.current) {

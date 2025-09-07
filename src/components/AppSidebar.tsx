@@ -127,18 +127,30 @@ export function AppSidebar({ activeView, setActiveView }: AppSidebarProps) {
         {/* Sidebar Header / Logo */}
         <SidebarHeader className="p-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm">
-              <Shield className="h-6 w-6" />
-            </div>
-            {!isCollapsed && (
-              <div className="flex flex-col">
-                <h2 className="text-lg font-bold text-blue-800">
-                  ModusMapping
-                </h2>
-                <p className="text-sm text-blue-600 font-semibold">
-                  Tamil Nadu Police
-                </p>
+            {!isCollapsed ? (
+              // Show full logo when sidebar is expanded
+              <div className="flex items-center gap-3">
+                <img 
+                  src="/logo.png" 
+                  alt="ModusMapping Logo" 
+                  className="h-10 w-10 object-contain"
+                />
+                <div className="flex flex-col">
+                  <h2 className="text-lg font-bold text-blue-800">
+                    ModusMapping
+                  </h2>
+                  <p className="text-sm text-blue-600 font-semibold">
+                    Tamil Nadu Police
+                  </p>
+                </div>
               </div>
+            ) : (
+              // Show only logo when sidebar is collapsed
+              <img 
+                src="/logo.png" 
+                alt="ModusMapping Logo" 
+                className="h-10 w-10 object-contain mx-auto"
+              />
             )}
           </div>
         </SidebarHeader>
@@ -165,21 +177,21 @@ export function AppSidebar({ activeView, setActiveView }: AppSidebarProps) {
                         }}
                         isActive={isActive}
                         tooltip={isCollapsed ? item.title : undefined}
-                        className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 border ${
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 transform ${
                           isActive 
-                            ? "bg-blue-700 text-white border-blue-800 shadow-lg" 
-                            : "bg-white text-blue-900 border-blue-200 hover:bg-blue-100 hover:text-blue-800 hover:border-blue-400 hover:shadow-md"
+                            ? "bg-blue-100 text-blue-800 border-blue-400 shadow-md" // active matches hover
+                            : "bg-white text-blue-900 border-blue-200 hover:bg-blue-100 hover:text-blue-800 hover:border-blue-400 hover:shadow-lg hover:scale-105 hover:-translate-y-1"
                         }`}
                       >
                         <item.icon className={`h-5 w-5 flex-shrink-0 ${
-                          isActive ? "text-white" : "text-blue-600"
+                          isActive ? "text-blue-800" : "text-blue-800"
                         }`} />
                         {!isCollapsed && (
                           <div className="flex flex-1 flex-col text-left">
                             <span className="text-sm font-bold">
                               {item.title}
                             </span>
-                            <span className="text-xs text-blue-600 mt-0.5">
+                            <span className="text-xs text-gray-500 mt-0.5">
                               {item.description}
                             </span>
                           </div>
@@ -217,21 +229,21 @@ export function AppSidebar({ activeView, setActiveView }: AppSidebarProps) {
                         }}
                         isActive={isActive}
                         tooltip={isCollapsed ? item.title : undefined}
-                        className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 border ${
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 transform ${
                           isActive 
-                            ? "bg-blue-700 text-white border-blue-800 shadow-lg" 
-                            : "bg-white text-blue-900 border-blue-200 hover:bg-blue-100 hover:text-blue-800 hover:border-blue-400 hover:shadow-md"
+                            ? "bg-blue-100 text-blue-800 border-blue-400 shadow-md" // active matches hover
+                            : "bg-white text-blue-900 border-blue-200 hover:bg-blue-100 hover:text-blue-800 hover:border-blue-400 hover:shadow-lg hover:scale-105 hover:-translate-y-1"
                         }`}
                       >
                         <item.icon className={`h-5 w-5 flex-shrink-0 ${
-                          isActive ? "text-white" : "text-blue-600"
+                          isActive ? "text-blue-800" : "text-blue-800"
                         }`} />
                         {!isCollapsed && (
                           <div className="flex flex-1 flex-col text-left">
                             <span className="text-sm font-bold">
                               {item.title}
                             </span>
-                            <span className="text-xs text-blue-600 mt-0.5">
+                            <span className="text-xs text-gray-500 mt-0.5">
                               {item.description}
                             </span>
                           </div>
