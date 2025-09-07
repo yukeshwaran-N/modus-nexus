@@ -13,6 +13,7 @@ import { CriminalDataEntry } from "@/components/CriminalDataEntry";
 import { CriminalReport } from "@/components/CriminalReport";
 import { SystemSettings } from "@/components/SystemSettings";
 import Chatbot from './components/Chatbot';
+import { Cases } from './components/Cases'; // Cases component imported
 
 // Define the CriminalRecord interface
 interface CriminalRecord {
@@ -99,7 +100,7 @@ function AppContent() {
             <Route path="/data-entry" element={<CriminalDataEntry />} />
             <Route path="/reports" element={<CriminalReport />} />
             <Route path="/settings" element={<SystemSettings />} />
-            <Route path="/cases" element={<div>Criminal Cases View - Under Development</div>} />
+            <Route path="/cases" element={<Cases />} /> {/* Changed to use Cases component */}
           </Routes>
         </div>
         
