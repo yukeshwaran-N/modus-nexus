@@ -1,6 +1,7 @@
 import { useState, useMemo, Fragment } from 'react';
 import { useCriminalRecords } from '@/hooks/useCriminalRecords';
-import { Search, Filter, ArrowUpDown, X, Edit, Eye, Save, ChevronDown, ChevronUp, Brain } from 'lucide-react';
+import { Search, Filter, ArrowUpDown, X, Edit, Eye, Save, ChevronDown, ChevronUp, Brain, Network } from 'lucide-react';
+import { CriminalLink } from './Criminal-link';
 
 // Define TypeScript interfaces
 interface CriminalRecord {
@@ -268,6 +269,8 @@ export function CriminalsTable({ onAskAI }: CriminalsTableProps) {
   const [editingRecord, setEditingRecord] = useState<CriminalRecord | null>(null);
   const [viewingRecord, setViewingRecord] = useState<CriminalRecord | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [linkingRecord, setLinkingRecord] = useState<CriminalRecord | null>(null);
+  const [networkLinks, setNetworkLinks] = useState<any[]>([]);
 
   // Ensure all records have IDs with proper typing
   const recordsWithIds = useMemo(() => {
@@ -368,6 +371,13 @@ export function CriminalsTable({ onAskAI }: CriminalsTableProps) {
       console.error('Error updating record:', error);
       alert('Error updating record. Please try again.');
     }
+  };
+
+  // Handle link creation
+  const handleLinkCreated = (linkData: any) => {
+    setNetworkLinks(prev => [...prev, linkData]);
+    // Here you would typically send this to your backend API
+    console.log('Network link created:', linkData);
   };
 
   // Get unique values for filter dropdowns
@@ -560,6 +570,13 @@ export function CriminalsTable({ onAskAI }: CriminalsTableProps) {
                         >
                           <Edit className="h-4 w-4" />
                         </button>
+                        <button
+                          onClick={() => setLinkingRecord(record)}
+                          className="p-1 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded"
+                          title="Link to Another Criminal"
+                        >
+                          <Network className="h-4 w-4" />
+                        </button>
                         {onAskAI && (
                           <button
                             onClick={() => onAskAI(record)}
@@ -605,6 +622,16 @@ export function CriminalsTable({ onAskAI }: CriminalsTableProps) {
         <ViewModal
           record={viewingRecord}
           onClose={() => setViewingRecord(null)}
+        />
+      )}
+
+      {/* Criminal Link Modal */}
+      {linkingRecord && (
+        <CriminalLink
+          sourceRecord={linkingRecord}
+          records={recordsWithIds}
+          onLinkCreated={handleLinkCreated}
+          onClose={() => setLinkingRecord(null)}
         />
       )}
     </div>
