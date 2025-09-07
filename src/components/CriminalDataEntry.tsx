@@ -1,7 +1,8 @@
 // src/components/CriminalDataEntry.tsx
 import { useState, useRef } from 'react';
-import { Upload, FileText, UserPlus, X, Download, FileUp } from 'lucide-react';
+import { Upload, FileText, UserPlus, X, Download, FileUp, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import * as XLSX from 'xlsx';
 
 // Criminal record type - based on your database structure
 interface CriminalData {
@@ -46,6 +47,9 @@ export function CriminalDataEntry() {
   const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importStatus, setImportStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [importResult, setImportResult] = useState<{ success: number; errors: number }>({ success: 0, errors: 0 });
   const criminalPhotoInputRef = useRef<HTMLInputElement>(null);
   const evidenceInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
@@ -200,7 +204,114 @@ export function CriminalDataEntry() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    alert('Excel import functionality would be implemented here. File: ' + file.name);
+    setImportStatus('processing');
+    setImportProgress(0);
+    setImportResult({ success: 0, errors: 0 });
+
+    try {
+      console.log('Starting Excel import for file:', file.name);
+      
+      // Read the Excel file
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      
+      // Get the first worksheet
+      const worksheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[worksheetName];
+      
+      // Convert to JSON
+      const data = XLSX.utils.sheet_to_json(worksheet);
+      console.log('Excel data parsed:', data);
+
+      if (data.length === 0) {
+        throw new Error('Excel file is empty or no data found');
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process each row
+      for (let i = 0; i < data.length; i++) {
+        try {
+          const row: any = data[i];
+          console.log(`Processing row ${i + 1}:`, row);
+          
+          // Map Excel columns to database fields with better error handling
+          const insertData: Partial<CriminalData> = {
+            case_id: row.case_id || row['Case ID'] || `TN-AUTO-${Date.now()}-${i}`,
+            name: row.name || row.Name || '',
+            age: parseInt(row.age || row.Age || '0'),
+            gender: row.gender || row.Gender || '',
+            phone_number: row.phone_number || row.phone || row.Phone || '',
+            email: row.email || row.Email || '',
+            nationality: row.nationality || row.Nationality || 'Indian',
+            crime_type: row.crime_type || row.crime || row.Crime || '',
+            modus_operandi: row.modus_operandi || row.modus || row.Modus || '',
+            tools_used: row.tools_used || row.tools || row.Tools || '',
+            associates: row.associates || row.Associates || '',
+            connected_criminals: row.connected_criminals || row.connected || row.Connected || '',
+            case_status: row.case_status || row.status || row.Status || 'Under Investigation',
+            current_status: row.current_status || row.current || row.Current || 'In Custody',
+            last_location: row.last_location || row.location || row.Location || '',
+            arrest_date: row.arrest_date || row.arrest || row.Arrest || '',
+            bail_date: row.bail_date || row.bail || row.Bail || '',
+            bio: row.bio || row.Bio || '',
+            total_cases: parseInt(row.total_cases || row.total || row.Total || '0'),
+            legal_status: row.legal_status || row.legal || row.Legal || 'Under Investigation',
+            known_associates: row.known_associates || row.known || row.Known || '',
+            case_progress_timeline: row.case_progress_timeline || row.timeline || row.Timeline || '',
+            address: row.address || row.Address || '',
+            address_line: row.address_line || row.addressLine || row.AddressLine || '',
+            city: row.city || row.City || '',
+            state: row.state || row.State || 'Tamil Nadu',
+            country: row.country || row.Country || 'India',
+            risk_level: row.risk_level || row.risk || row.Risk || 'Medium',
+            threat_level: row.threat_level || row.threat || row.Threat || 'Medium',
+            date_added: new Date().toISOString()
+          };
+
+          console.log('Insert data prepared:', insertData);
+
+          // Insert into database
+          const { error } = await supabase
+            .from('criminal_records')
+            .insert([insertData]);
+
+          if (error) {
+            console.error(`Database error for row ${i + 1}:`, error);
+            errorCount++;
+          } else {
+            successCount++;
+            console.log(`Row ${i + 1} inserted successfully`);
+          }
+
+        } catch (rowError) {
+          console.error(`Error processing row ${i + 1}:`, rowError);
+          errorCount++;
+        }
+
+        // Update progress
+        setImportProgress(Math.round(((i + 1) / data.length) * 100));
+        setImportResult({ success: successCount, errors: errorCount });
+      }
+
+      setImportStatus(successCount > 0 ? 'success' : 'error');
+      
+      if (successCount > 0) {
+        alert(`Import completed! Success: ${successCount}, Errors: ${errorCount}`);
+      } else {
+        alert('Import failed. Please check the Excel file format and try again.');
+      }
+
+    } catch (error: any) {
+      console.error('Excel import error:', error);
+      setImportStatus('error');
+      alert('Error importing Excel file: ' + (error.message || 'Please check the file format'));
+    } finally {
+      if (excelInputRef.current) {
+        excelInputRef.current.value = '';
+      }
+    }
   };
 
   const resetForm = () => {
@@ -290,6 +401,9 @@ export function CriminalDataEntry() {
                 onExcelImport={handleExcelImport}
                 onDownloadTemplate={downloadTemplate}
                 excelInputRef={excelInputRef}
+                importStatus={importStatus}
+                importProgress={importProgress}
+                importResult={importResult}
               />
             )}
           </div>
@@ -443,7 +557,14 @@ function ManualEntryForm({
 }
 
 // Excel Import Component
-function ExcelImport({ onExcelImport, onDownloadTemplate, excelInputRef }: any) {
+function ExcelImport({ 
+  onExcelImport, 
+  onDownloadTemplate, 
+  excelInputRef, 
+  importStatus, 
+  importProgress, 
+  importResult 
+}: any) {
   return (
     <div className="text-center space-y-6">
       <div className="bg-blue-50 rounded-2xl p-8">
@@ -464,14 +585,77 @@ function ExcelImport({ onExcelImport, onDownloadTemplate, excelInputRef }: any) 
         <button
           onClick={() => excelInputRef.current?.click()}
           className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 mb-4"
+          disabled={importStatus === 'processing'}
         >
-          Choose Excel File
+          {importStatus === 'processing' ? 'Processing...' : 'Choose Excel File'}
         </button>
         
         <div className="text-sm text-gray-500">
           Supported formats: .xlsx, .xls, .csv
         </div>
       </div>
+
+      {/* Import Progress */}
+      {importStatus === 'processing' && (
+        <div className="bg-gray-100 rounded-lg p-4">
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <span>Importing records...</span>
+            <span>{importProgress}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${importProgress}%` }}
+            />
+          </div>
+          <div className="text-sm text-gray-600 mt-2">
+            Success: {importResult.success}, Errors: {importResult.errors}
+          </div>
+        </div>
+      )}
+
+      {/* Import Results */}
+      {importStatus === 'success' && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-green-800">
+                Import Successful
+              </h3>
+              <div className="mt-2 text-sm text-green-700">
+                <p>Successfully imported {importResult.success} records</p>
+                {importResult.errors > 0 && (
+                  <p>{importResult.errors} records failed</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {importStatus === 'error' && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <AlertCircle className="h-5 w-5 text-red-400" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">
+                Import Failed
+              </h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>Please check the Excel file format and try again.</p>
+                <p className="text-xs">Check browser console for detailed errors</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <button
         onClick={onDownloadTemplate}
