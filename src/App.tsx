@@ -96,6 +96,7 @@ function AppContent() {
             <Route path="/maps" element={<CrimeHeatmap />} />
             <Route path="/insights" element={<CrimeInsightsPanel />} />
             <Route path="/network" element={<CriminalNetworkGraph />} />
+            <Route path="/criminal-network" element={<CriminalNetworkGraph />} />
             <Route path="/live" element={<LiveFeedPanel />} />
             <Route path="/data-entry" element={<CriminalDataEntry />} />
             <Route path="/reports" element={<CriminalReport />} />

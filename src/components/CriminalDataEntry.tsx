@@ -1,6 +1,6 @@
 // src/components/CriminalDataEntry.tsx
 import { useState, useRef } from 'react';
-import { Upload, FileText, UserPlus, X, Download, FileUp, AlertCircle } from 'lucide-react';
+import { Upload, FileText, UserPlus, X, Download, FileUp, AlertCircle, Square } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
 
@@ -50,6 +50,7 @@ export function CriminalDataEntry() {
   const [importProgress, setImportProgress] = useState(0);
   const [importStatus, setImportStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [importResult, setImportResult] = useState<{ success: number; errors: number }>({ success: 0, errors: 0 });
+  const [isImportCancelled, setIsImportCancelled] = useState(false);
   const criminalPhotoInputRef = useRef<HTMLInputElement>(null);
   const evidenceInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
@@ -207,24 +208,59 @@ export function CriminalDataEntry() {
     setImportStatus('processing');
     setImportProgress(0);
     setImportResult({ success: 0, errors: 0 });
+    setIsImportCancelled(false);
 
     try {
-      console.log('Starting Excel import for file:', file.name);
+      console.log('Starting file import for file:', file.name, file.type);
       
-      // Read the Excel file
-      const arrayBuffer = await file.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      let data: any[] = [];
       
-      // Get the first worksheet
-      const worksheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[worksheetName];
+      // Handle CSV files
+      if (file.name.endsWith('.csv') || file.type === 'text/csv') {
+        console.log('Processing CSV file');
+        const text = await file.text();
+        const lines = text.split('\n');
+        
+        if (lines.length <= 1) {
+          throw new Error('CSV file is empty or no data found');
+        }
+        
+        // Extract headers from first line
+        const headers = lines[0].split(',').map(header => header.trim());
+        console.log('CSV headers:', headers);
+        
+        // Process each line
+        for (let i = 1; i < lines.length; i++) {
+          if (!lines[i].trim()) continue; // Skip empty lines
+          
+          const values = lines[i].split(',').map(value => value.trim());
+          const rowData: Record<string, any> = {};
+          
+          headers.forEach((header, index) => {
+            rowData[header] = values[index] || '';
+          });
+          
+          data.push(rowData);
+        }
+      } 
+      // Handle Excel files
+      else {
+        console.log('Processing Excel file');
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        
+        // Get the first worksheet
+        const worksheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[worksheetName];
+        
+        // Convert to JSON
+        data = XLSX.utils.sheet_to_json(worksheet);
+      }
       
-      // Convert to JSON
-      const data = XLSX.utils.sheet_to_json(worksheet);
-      console.log('Excel data parsed:', data);
+      console.log('File data parsed:', data);
 
       if (data.length === 0) {
-        throw new Error('Excel file is empty or no data found');
+        throw new Error('File is empty or no data found');
       }
 
       let successCount = 0;
@@ -232,11 +268,20 @@ export function CriminalDataEntry() {
 
       // Process each row
       for (let i = 0; i < data.length; i++) {
+        // Check if import was cancelled
+        if (isImportCancelled) {
+          console.log('Import cancelled by user');
+          setImportStatus('idle');
+          break;
+        }
+
         try {
           const row: any = data[i];
+          if (!row || Object.keys(row).length === 0) continue;
+          
           console.log(`Processing row ${i + 1}:`, row);
           
-          // Map Excel columns to database fields with better error handling
+          // Map columns to database fields with better error handling
           const insertData: Partial<CriminalData> = {
             case_id: row.case_id || row['Case ID'] || `TN-AUTO-${Date.now()}-${i}`,
             name: row.name || row.Name || '',
@@ -295,23 +340,30 @@ export function CriminalDataEntry() {
         setImportResult({ success: successCount, errors: errorCount });
       }
 
-      setImportStatus(successCount > 0 ? 'success' : 'error');
-      
-      if (successCount > 0) {
-        alert(`Import completed! Success: ${successCount}, Errors: ${errorCount}`);
-      } else {
-        alert('Import failed. Please check the Excel file format and try again.');
+      if (!isImportCancelled) {
+        setImportStatus(successCount > 0 ? 'success' : 'error');
+        
+        if (successCount > 0) {
+          alert(`Import completed! Success: ${successCount}`);
+        } else {
+          alert('Import failed. Please check the file format and try again.');
+        }
       }
 
     } catch (error: any) {
-      console.error('Excel import error:', error);
+      console.error('File import error:', error);
       setImportStatus('error');
-      alert('Error importing Excel file: ' + (error.message || 'Please check the file format'));
+      alert('Error importing file: ' + (error.message || 'Please check the file format'));
     } finally {
       if (excelInputRef.current) {
         excelInputRef.current.value = '';
       }
     }
+  };
+
+  const cancelImport = () => {
+    setIsImportCancelled(true);
+    setImportStatus('idle');
   };
 
   const resetForm = () => {
@@ -349,7 +401,7 @@ export function CriminalDataEntry() {
             Criminal Data Entry System
           </h1>
           <p className="text-gray-600">
-            Add new criminal records manually or import from Excel
+            Add new criminal records manually or import from Excel/CSV
           </p>
         </div>
 
@@ -376,7 +428,7 @@ export function CriminalDataEntry() {
               }`}
             >
               <FileText className="h-5 w-5" />
-              Excel Import
+              Excel/CSV Import
             </button>
           </div>
 
@@ -400,10 +452,12 @@ export function CriminalDataEntry() {
               <ExcelImport
                 onExcelImport={handleExcelImport}
                 onDownloadTemplate={downloadTemplate}
+                onCancelImport={cancelImport}
                 excelInputRef={excelInputRef}
                 importStatus={importStatus}
                 importProgress={importProgress}
                 importResult={importResult}
+                isImportCancelled={isImportCancelled}
               />
             )}
           </div>
@@ -557,21 +611,24 @@ function ManualEntryForm({
 }
 
 // Excel Import Component
+// Excel Import Component
 function ExcelImport({ 
   onExcelImport, 
   onDownloadTemplate, 
+  onCancelImport,
   excelInputRef, 
   importStatus, 
   importProgress, 
-  importResult 
+  importResult,
+  isImportCancelled
 }: any) {
   return (
     <div className="text-center space-y-6">
       <div className="bg-blue-50 rounded-2xl p-8">
         <FileUp className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">Import from Excel</h3>
+        <h3 className="text-xl font-semibold text-gray-800 mb-2">Import from Excel/CSV</h3>
         <p className="text-gray-600 mb-4">
-          Upload an Excel file with criminal data. Download the template below for the correct format.
+          Upload an Excel or CSV file with criminal data. Download the template below for the correct format.
         </p>
         
         <input
@@ -587,7 +644,7 @@ function ExcelImport({
           className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 mb-4"
           disabled={importStatus === 'processing'}
         >
-          {importStatus === 'processing' ? 'Processing...' : 'Choose Excel File'}
+          {importStatus === 'processing' ? 'Processing...' : 'Choose File'}
         </button>
         
         <div className="text-sm text-gray-500">
@@ -608,50 +665,66 @@ function ExcelImport({
               style={{ width: `${importProgress}%` }}
             />
           </div>
-          <div className="text-sm text-gray-600 mt-2">
-            Success: {importResult.success}, Errors: {importResult.errors}
+          
+          {/* Cancel Button */}
+          <div className="mt-4">
+            <button
+              onClick={onCancelImport}
+              className="flex items-center gap-2 text-red-600 hover:text-red-800 mx-auto text-sm"
+            >
+              <Square className="h-4 w-4" />
+              Stop Import
+            </button>
           </div>
         </div>
       )}
 
       {/* Import Results */}
       {importStatus === 'success' && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        <div className="flex items-center justify-center">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6 max-w-md w-full">
+            <div className="flex flex-col items-center text-center">
+              <svg className="h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-green-800">
+              <h3 className="text-lg font-medium text-green-800 mb-2">
                 Import Successful
               </h3>
-              <div className="mt-2 text-sm text-green-700">
-                <p>Successfully imported {importResult.success} records</p>
-                {importResult.errors > 0 && (
-                  <p>{importResult.errors} records failed</p>
-                )}
-              </div>
+              <p className="text-green-700">
+                Successfully imported {importResult.success} records
+              </p>
             </div>
           </div>
         </div>
       )}
 
       {importStatus === 'error' && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-red-400" />
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">
+        <div className="flex items-center justify-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md w-full">
+            <div className="flex flex-col items-center text-center">
+              <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+              <h3 className="text-lg font-medium text-red-800 mb-2">
                 Import Failed
               </h3>
-              <div className="mt-2 text-sm text-red-700">
-                <p>Please check the Excel file format and try again.</p>
-                <p className="text-xs">Check browser console for detailed errors</p>
-              </div>
+              <p className="text-red-700">
+                Please check the file format and try again.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isImportCancelled && (
+        <div className="flex items-center justify-center">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md w-full">
+            <div className="flex flex-col items-center text-center">
+              <AlertCircle className="h-12 w-12 text-yellow-500 mb-4" />
+              <h3 className="text-lg font-medium text-yellow-800 mb-2">
+                Import Cancelled
+              </h3>
+              <p className="text-yellow-700">
+                Import process was cancelled by user.
+              </p>
             </div>
           </div>
         </div>

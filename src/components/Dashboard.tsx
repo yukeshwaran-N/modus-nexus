@@ -32,6 +32,7 @@ interface NewsArticle {
 }
 
 const WEATHER_API_KEY = "416cbf771f8338b1dc6225551922793b";
+const NEWS_API_KEY = "9b7211ac64ce2684ef5e4e05a10abd16";
 
 const WeatherWidget: React.FC = () => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -72,6 +73,7 @@ const WeatherWidget: React.FC = () => {
       );
     } else {
       // Fallback to Chennai coordinates if geolocation not supported
+      setLocationAccess(false);
       fetchWeather(13.0827, 80.2707);
     }
   }, []);
@@ -102,7 +104,7 @@ const WeatherWidget: React.FC = () => {
       {showTooltip && weather && (
         <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-10">
           <div className="flex items-center justify-between mb-2">
-            <h4 className="font-semibold text-gray-800">Weather Details</h4>
+            <h4 className="font-semibold text-gray-800">Weather in {weather.name}</h4>
             <Cloud className="h-5 w-5 text-blue-500" />
           </div>
           <div className="space-y-1 text-sm">
@@ -122,14 +124,10 @@ const WeatherWidget: React.FC = () => {
               <span className="text-gray-600">Wind:</span>
               <span className="font-medium">{weather.wind.speed} m/s</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Location:</span>
-              <span className="font-medium">{weather.name}</span>
-            </div>
           </div>
           {!locationAccess && (
             <div className="mt-2 p-2 bg-yellow-50 rounded text-xs text-yellow-700">
-              Allow location access for accurate weather data
+              Using default location. Allow access for accurate weather data.
             </div>
           )}
         </div>
@@ -138,78 +136,128 @@ const WeatherWidget: React.FC = () => {
   );
 };
 
-const NewsTicker: React.FC = () => {
+const NewsCard: React.FC = () => {
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Mock news data
-    const mockNews: NewsArticle[] = [
-      {
-        title: "Tamil Nadu Police launches new crime prevention initiative",
-        source: { name: "The Hindu" },
-        url: "#",
-        publishedAt: new Date().toISOString()
-      },
-      {
-        title: "Advanced surveillance systems installed across Chennai",
-        source: { name: "Times of India" },
-        url: "#",
-        publishedAt: new Date().toISOString()
-      },
-      {
-        title: "Cyber crime unit arrests 5 in major fraud case",
-        source: { name: "Deccan Chronicle" },
-        url: "#",
-        publishedAt: new Date().toISOString()
-      },
-      {
-        title: "New AI-powered crime prediction system shows 95% accuracy",
-        source: { name: "Police Today" },
-        url: "#",
-        publishedAt: new Date().toISOString()
+    const fetchNews = async () => {
+      try {
+        const response = await fetch(
+          `https://gnews.io/api/v4/search?q=crime+police&lang=en&country=in&max=10&apikey=${NEWS_API_KEY}`
+        );
+        const result = await response.json();
+        setNews(result.articles || []);
+      } catch (error) {
+        console.error("Error fetching news:", error);
+        // Fallback to mock data if API fails
+        const mockNews: NewsArticle[] = [
+          {
+            title: "Tamil Nadu Police launches new crime prevention initiative",
+            source: { name: "The Hindu" },
+            url: "#",
+            publishedAt: new Date().toISOString()
+          },
+          {
+            title: "Advanced surveillance systems installed across Chennai",
+            source: { name: "Times of India" },
+            url: "#",
+            publishedAt: new Date().toISOString()
+          },
+          {
+            title: "Cyber crime unit arrests 5 in major fraud case",
+            source: { name: "Deccan Chronicle" },
+            url: "#",
+            publishedAt: new Date().toISOString()
+          },
+          {
+            title: "New AI-powered crime prediction system shows 95% accuracy",
+            source: { name: "Police Today" },
+            url: "#",
+            publishedAt: new Date().toISOString()
+          }
+        ];
+        setNews(mockNews);
       }
-    ];
-    setNews(mockNews);
-    setLoading(false);
+    };
+    fetchNews();
   }, []);
 
+  // Auto-slide
   useEffect(() => {
     if (news.length === 0) return;
-
     const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % news.length);
-    }, 3000);
-
+      const nextIndex = (currentIndex + 1) % news.length;
+      setCurrentIndex(nextIndex);
+      if (carouselRef.current) {
+        carouselRef.current.scrollTo({
+          left: nextIndex * 320, // Adjusted for better fit
+          behavior: "smooth",
+        });
+      }
+    }, 4000);
     return () => clearInterval(interval);
-  }, [news.length]);
+  }, [currentIndex, news]);
 
-  if (loading) return (
-    <div className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg p-2">
-      <Newspaper className="h-4 w-4" />
-      <span className="text-sm">Loading news...</span>
-    </div>
-  );
+  // Track scroll for dot sync
+  useEffect(() => {
+    const carousel = carouselRef.current;
+    if (!carousel) return;
 
-  if (news.length === 0) return null;
+    const handleScroll = () => {
+      const index = Math.round(carousel.scrollLeft / 320);
+      setCurrentIndex(index);
+    };
+
+    carousel.addEventListener("scroll", handleScroll);
+    return () => carousel.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  if (news.length === 0) {
+    return <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">Loading News...</div>;
+  }
 
   return (
-    <div className="flex items-center gap-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg p-2 overflow-hidden">
-      <Newspaper className="h-4 w-4 flex-shrink-0" />
-      <div className="flex-1 overflow-hidden">
-        <div 
-          key={currentIndex} 
-          className="text-sm whitespace-nowrap animate-slideIn"
-        >
-          {news[currentIndex].title}
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 w-full">
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <Newspaper className="h-5 w-5" />
+        Latest Crime News
+      </h2>
+      <div className="overflow-hidden" ref={carouselRef}>
+        <div className="flex">
+          {news.map((article, index) => (
+            <div key={index} className="flex-shrink-0 w-80 mr-6">
+              <a 
+                href={article.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <h3 className="font-medium text-gray-800 line-clamp-2 mb-2">{article.title}</h3>
+                <p className="text-sm text-gray-500">({article.source.name})</p>
+              </a>
+            </div>
+          ))}
         </div>
       </div>
-      <div className="flex gap-1">
-        {news.map((_, index) => (
-          <div 
-            key={index} 
-            className={`h-1 w-1 rounded-full ${index === currentIndex ? 'bg-white' : 'bg-white/50'}`}
+
+      {/* Dots */}
+      <div className="flex justify-center mt-4">
+        {news.map((_, i) => (
+          <button
+            key={i}
+            className={`h-2 w-2 rounded-full mx-1 ${i === currentIndex ? 'bg-blue-600' : 'bg-gray-300'}`}
+            onClick={() => {
+              setCurrentIndex(i);
+              if (carouselRef.current) {
+                carouselRef.current.scrollTo({
+                  left: i * 320,
+                  behavior: 'smooth'
+                });
+              }
+            }}
+            aria-label={`Go to news item ${i+1}`}
           />
         ))}
       </div>
@@ -259,52 +307,64 @@ const SystemInfoWidget: React.FC = () => {
 };
 
 export default function Dashboard() {
+  // Function to handle Get Started button click
+  const handleGetStarted = () => {
+    alert("Get Started functionality would be implemented here!");
+    // In a real app, you would navigate to a different page or open a modal
+  };
+
+  // Function to handle Pattern Detection button click
+  const handlePatternDetection = () => {
+    alert("Pattern Detection functionality would be implemented here!");
+    // In a real app, you would navigate to the pattern detection page or open a modal
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header Section with System Info and Weather in top right */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-          <div className="text-center lg:text-left space-y-4 flex-1">
-            <div className="flex items-center justify-center lg:justify-start gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg">
-                <Shield className="h-8 w-8" />
-              </div>
-              <div>
-                <h1 className="text-4xl lg:text-5xl font-bold text-gray-800">ModusMapping</h1>
-                <p className="text-lg text-gray-600 mt-1">Tamil Nadu Police Intelligence Platform</p>
-              </div>
-            </div>
-          </div>
-
-          {/* System Info and Weather Widgets in top right corner */}
-          <div className="flex items-center gap-2 self-center">
+        {/* Header Section with only System Info and Weather in top right */}
+        <div className="flex justify-end">
+          <div className="flex items-center gap-2">
             <WeatherWidget />
             <SystemInfoWidget />
           </div>
         </div>
 
-        {/* Hero Section */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-3xl p-8 lg:p-12 text-white text-center">
+        {/* Hero Section with centered logo */}
+        <div className="text-black text-center">
           <div className="max-w-4xl mx-auto space-y-6">
+            {/* Centered Shield Logo */}
+            <div className="flex justify-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg mb-4">
+                <Shield className="h-10 w-10" />
+              </div>
+            </div>
+
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-sm">
               <Sparkles className="h-4 w-4" />
-              <span>REVOLUTIONIZING POLICE WORK</span>
+              <span>Tamil Nadu Police Intelligence Platform</span>
             </div>
             
             <h2 className="text-3xl lg:text-5xl font-bold leading-tight">
-              Crime Prevention Made<br />
-              Simple with Generative AI
+              Modus Mapping<br />
+              AI-Powered Crime Records
             </h2>
             
-            <p className="text-lg lg:text-xl text-blue-100 max-w-2xl mx-auto">
+            <p className="text-lg lg:text-xl text-black-100 max-w-2xl mx-auto">
               Use AI to detect criminal patterns, analyze networks, and prevent crimes before they happen
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-              <button className="bg-white text-blue-700 px-8 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
+              <button 
+                className="bg-white text-blue-700 px-8 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                onClick={handleGetStarted}
+              >
                 Get Started <ChevronRight className="h-5 w-5" />
               </button>
-              <button className="bg-blue-800 text-white px-8 py-3 rounded-xl font-semibold hover:bg-blue-900 transition-colors flex items-center justify-center gap-2">
+              <button 
+                className="bg-blue-800 text-white px-8 py-3 rounded-xl font-semibold hover:bg-blue-900 transition-colors flex items-center justify-center gap-2"
+                onClick={handlePatternDetection}
+              >
                 <Eye className="h-5 w-5" />
                 Pattern Detection
               </button>
@@ -312,9 +372,11 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Weather and News Ticker - Compact Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <NewsTicker />
+        {/* News Section - Centered */}
+        <div className="flex justify-center">
+          <div className="w-full max-w-4xl">
+            <NewsCard />
+          </div>
         </div>
 
         {/* Metrics Grid */}
@@ -465,6 +527,12 @@ export default function Dashboard() {
         }
         .animate-slideIn {
           animation: slideIn 0.5s ease-out;
+        }
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
       `}</style>
     </div>

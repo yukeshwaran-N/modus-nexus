@@ -9,8 +9,11 @@ import {
   Menu,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Network,
+  LogOut // Added LogOut icon
 } from "lucide-react";
+import { Link } from 'react-router-dom';
 import { useState, useEffect } from "react";
 
 import {
@@ -28,6 +31,8 @@ import {
 interface AppSidebarProps {
   activeView: string;
   setActiveView: (view: string) => void;
+  user?: any; // Add optional user prop
+  onLogout?: () => void; // Add optional logout handler
 }
 
 const navigationItems = [
@@ -48,6 +53,12 @@ const navigationItems = [
     icon: Users,
     id: "criminals", 
     description: "Criminal database"
+  },
+  {
+    title: "Criminal Network",
+    icon: Network,
+    id: "criminal-network",
+    description: "Visualize connections"
   },
   {
     title: "Cases",
@@ -78,7 +89,7 @@ const adminItems = [
   },
 ];
 
-export function AppSidebar({ activeView, setActiveView }: AppSidebarProps) {
+export function AppSidebar({ activeView, setActiveView, user, onLogout }: AppSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -179,7 +190,7 @@ export function AppSidebar({ activeView, setActiveView }: AppSidebarProps) {
                         tooltip={isCollapsed ? item.title : undefined}
                         className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 transform ${
                           isActive 
-                            ? "bg-blue-100 text-blue-800 border-blue-400 shadow-md" // active matches hover
+                            ? "bg-blue-100 text-blue-800 border-blue-400 shadow-md"
                             : "bg-white text-blue-900 border-blue-200 hover:bg-blue-100 hover:text-blue-800 hover:border-blue-400 hover:shadow-lg hover:scale-105 hover:-translate-y-1"
                         }`}
                       >
@@ -203,6 +214,7 @@ export function AppSidebar({ activeView, setActiveView }: AppSidebarProps) {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+          
 
           {/* Divider */}
           {!isCollapsed && (
@@ -231,7 +243,7 @@ export function AppSidebar({ activeView, setActiveView }: AppSidebarProps) {
                         tooltip={isCollapsed ? item.title : undefined}
                         className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 transform ${
                           isActive 
-                            ? "bg-blue-100 text-blue-800 border-blue-400 shadow-md" // active matches hover
+                            ? "bg-blue-100 text-blue-800 border-blue-400 shadow-md"
                             : "bg-white text-blue-900 border-blue-200 hover:bg-blue-100 hover:text-blue-800 hover:border-blue-400 hover:shadow-lg hover:scale-105 hover:-translate-y-1"
                         }`}
                       >
@@ -255,6 +267,56 @@ export function AppSidebar({ activeView, setActiveView }: AppSidebarProps) {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+
+          {/* User Info and Logout Section */}
+          {user && onLogout && (
+            <SidebarGroup className="mt-auto">
+              <hr className="my-6 border-gray-300" />
+              <SidebarGroupContent>
+                <div className={`flex items-center gap-3 p-3 rounded-lg bg-gray-50 ${
+                  isCollapsed ? 'justify-center' : ''
+                }`}>
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-medium text-blue-600">
+                      {user.email?.charAt(0).toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                  {!isCollapsed && (
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {user.email}
+                      </p>
+                      <p className="text-xs text-gray-500">Police Officer</p>
+                    </div>
+                  )}
+                </div>
+                
+                <SidebarMenu className="space-y-2 mt-2">
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={onLogout}
+                      tooltip={isCollapsed ? "Logout" : undefined}
+                      className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 transform ${
+                        "bg-white text-red-600 border-red-200 hover:bg-red-50 hover:text-red-800 hover:border-red-400 hover:shadow-lg hover:scale-105 hover:-translate-y-1"
+                      }`}
+                    >
+                      <LogOut className="h-5 w-5 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <div className="flex flex-1 flex-col text-left">
+                          <span className="text-sm font-bold">
+                            Logout
+                          </span>
+                          <span className="text-xs text-gray-500 mt-0.5">
+                            Sign out of system
+                          </span>
+                        </div>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
         </SidebarContent>
 
         {/* Collapse/Expand Button - Desktop */}
