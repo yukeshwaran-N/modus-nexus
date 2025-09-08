@@ -340,6 +340,7 @@ export function CriminalDataEntry() {
         setImportResult({ success: successCount, errors: errorCount });
       }
 
+      
       if (!isImportCancelled) {
         setImportStatus(successCount > 0 ? 'success' : 'error');
         
