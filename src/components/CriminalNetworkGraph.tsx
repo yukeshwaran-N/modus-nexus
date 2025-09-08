@@ -1,7 +1,7 @@
 // src/components/CriminalNetworkGraph.tsx
 import { useState, useEffect, useRef } from 'react';
 import { Link, ArrowRight, Filter, Search, Users, Target, Network, ZoomIn, ZoomOut } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { secureSupabase } from '@/lib/secureSupabase';
 import * as d3 from 'd3';
 
 interface CriminalNode {
@@ -59,10 +59,8 @@ export function CriminalNetworkGraph() {
     try {
       setLoading(true);
       
-      // Fetch criminal records
-      const { data: criminals, error } = await supabase
-        .from('criminal_records')
-        .select('*');
+      // Fetch criminal records using secureSupabase
+      const { data: criminals, error } = await secureSupabase.select('criminal_records');
       
       if (error) {
         console.error('Error fetching criminals:', error);
@@ -230,7 +228,7 @@ export function CriminalNetworkGraph() {
         .strength(chargeStrength))
       .force("center", d3.forceCenter(width / 2, height / 2))
       .force("collision", d3.forceCollide()
-        .radius(d => collisionRadius + (d.value * 1.2))
+        .radius(d => collisionRadius + ((d as SimulationNode).value * 1.2))
         .strength(0.8))
       .force("x", d3.forceX(width / 2).strength(0.05))
       .force("y", d3.forceY(height / 2).strength(0.05));
@@ -569,7 +567,7 @@ export function CriminalNetworkGraph() {
                     </div>
                   ))}
                 </div>
-              </div>
+                </div>
             </div>
           )}
         </div>

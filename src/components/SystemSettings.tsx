@@ -1,6 +1,7 @@
 // src/components/SystemSettings.tsx
 import { useState } from 'react';
-import { Save, Download, Upload, Key, User, Shield, Bell, Database, Cpu, History } from 'lucide-react';
+import { Save, Download, Upload, Key, User, Shield, Bell, Database, Cpu, History, Lock } from 'lucide-react';
+import { EncryptionKeyManager } from '@/components/EncryptionKeyManager';
 
 // Sample settings data
 const initialSettings = {
@@ -25,7 +26,8 @@ const initialSettings = {
     encryptionLevel: "aes-256",
     auditLogging: true,
     ipBlocking: true,
-    failedLoginLockout: true
+    failedLoginLockout: true,
+    dataEncryption: true
   },
   notifications: {
     emailAlerts: true,
@@ -226,6 +228,7 @@ export const SystemSettings = () => {
         {[
           { id: "system", label: "System", icon: <Cpu className="h-4 w-4" /> },
           { id: "security", label: "Security", icon: <Shield className="h-4 w-4" /> },
+          { id: "encryption", label: "Encryption", icon: <Lock className="h-4 w-4" /> },
           { id: "notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
           { id: "api", label: "API", icon: <Key className="h-4 w-4" /> },
           { id: "users", label: "Users", icon: <User className="h-4 w-4" /> },
@@ -331,6 +334,11 @@ export const SystemSettings = () => {
                 checked={settings.security.auditLogging}
                 onChange={(checked) => handleSettingChange("security", "auditLogging", checked)}
               />
+              <ToggleSetting
+                label="Data Encryption"
+                checked={settings.security.dataEncryption}
+                onChange={(checked) => handleSettingChange("security", "dataEncryption", checked)}
+              />
             </div>
             
             <div className="space-y-4">
@@ -368,6 +376,16 @@ export const SystemSettings = () => {
                 onChange={(value) => handleSettingChange("security", "encryptionLevel", value)}
               />
             </div>
+          </div>
+        )}
+
+        {activeTab === "encryption" && (
+          <div className="space-y-6">
+            <h3 className="font-semibold text-lg mb-4">Data Encryption</h3>
+            <p className="text-gray-600 mb-6">
+              Manage encryption settings for sensitive data. All data is encrypted at rest and in transit using AES-256 encryption.
+            </p>
+            <EncryptionKeyManager />
           </div>
         )}
 
@@ -574,16 +592,18 @@ export const SystemSettings = () => {
           </div>
         )}
 
-        <div className="mt-8 pt-6 border-t">
-          <button
-            onClick={saveSettings}
-            disabled={isSaving}
-            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            <Save className="h-4 w-4" />
-            {isSaving ? "Saving..." : "Save Settings"}
-          </button>
-        </div>
+        {activeTab !== "encryption" && (
+          <div className="mt-8 pt-6 border-t">
+            <button
+              onClick={saveSettings}
+              disabled={isSaving}
+              className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <Save className="h-4 w-4" />
+              {isSaving ? "Saving..." : "Save Settings"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

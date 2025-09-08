@@ -1,7 +1,7 @@
 // src/components/CriminalDataEntry.tsx
 import { useState, useRef } from 'react';
 import { Upload, FileText, UserPlus, X, Download, FileUp, AlertCircle, Square } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { secureSupabase } from '@/lib/secureSupabase';
 import * as XLSX from 'xlsx';
 
 // Criminal record type - based on your database structure
@@ -79,7 +79,8 @@ export function CriminalDataEntry() {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${folder}/${fileName}`;
 
-      const { error } = await supabase.storage
+      // Use secureSupabase for storage operations
+      const { error } = await secureSupabase.raw.storage
         .from('criminal-records')
         .upload(filePath, file);
 
@@ -88,7 +89,7 @@ export function CriminalDataEntry() {
         throw error;
       }
 
-      const { data } = supabase.storage
+      const { data } = secureSupabase.raw.storage
         .from('criminal-records')
         .getPublicUrl(filePath);
 
@@ -169,11 +170,8 @@ export function CriminalDataEntry() {
 
       console.log('Attempting to insert into criminal_records:', insertData);
 
-      // Insert into database
-      const { error, data } = await supabase
-        .from('criminal_records')
-        .insert([insertData])
-        .select();
+      // Insert into database using secureSupabase
+      const { error, data } = await secureSupabase.insert('criminal_records', insertData);
 
       if (error) {
         console.error('Database insert error:', error);
@@ -317,10 +315,8 @@ export function CriminalDataEntry() {
 
           console.log('Insert data prepared:', insertData);
 
-          // Insert into database
-          const { error } = await supabase
-            .from('criminal_records')
-            .insert([insertData]);
+          // Insert into database using secureSupabase
+          const { error } = await secureSupabase.insert('criminal_records', insertData);
 
           if (error) {
             console.error(`Database error for row ${i + 1}:`, error);
@@ -612,7 +608,6 @@ function ManualEntryForm({
 }
 
 // Excel Import Component
-// Excel Import Component
 function ExcelImport({ 
   onExcelImport, 
   onDownloadTemplate, 
@@ -702,7 +697,7 @@ function ExcelImport({
       {importStatus === 'error' && (
         <div className="flex items-center justify-center">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md w-full">
-            <div className="flex flex-col items-center text-center">
+            <div className="flex flexocol items-center text-center">
               <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
               <h3 className="text-lg font-medium text-red-800 mb-2">
                 Import Failed
