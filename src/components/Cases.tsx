@@ -1,6 +1,7 @@
 // src/components/Cases.tsx
 import { useState, useEffect } from 'react';
-import { Search, Filter, Plus, Eye, Edit, Download, MoreVertical } from 'lucide-react';
+import { Search, Filter, Plus, Eye, Edit, Download, MoreVertical, Loader, Database, AlertCircle } from 'lucide-react';
+import { secureSupabase } from '@/lib/secureSupabase';
 
 // Types
 interface Case {
@@ -15,6 +16,7 @@ interface Case {
   criminal_count: number;
   crime_type: string;
   location: string;
+  description?: string;
 }
 
 interface FilterOptions {
@@ -27,6 +29,7 @@ interface FilterOptions {
 export const Cases = () => {
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<FilterOptions>({
     status: '',
@@ -38,104 +41,94 @@ export const Cases = () => {
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const [tableExists, setTableExists] = useState<boolean | null>(null);
+  const itemsPerPage = 10;
 
-  // Sample data - in real app, this would come from API
-  const sampleCases: Case[] = [
-    {
-      id: '1',
-      case_id: 'FRA-2024-001',
-      title: 'Multi-state Financial Fraud',
-      status: 'under_investigation',
-      priority: 'high',
-      assigned_officer: 'Inspector Rajesh',
-      created_date: '2024-01-15',
-      last_updated: '2024-03-20',
-      criminal_count: 3,
-      crime_type: 'Financial Fraud',
-      location: 'Chennai'
-    },
-    {
-      id: '2',
-      case_id: 'CBR-2024-002',
-      title: 'Cyber Attack on Bank Systems',
-      status: 'open',
-      priority: 'critical',
-      assigned_officer: 'Cyber Crime Unit',
-      created_date: '2024-02-10',
-      last_updated: '2024-03-22',
-      criminal_count: 5,
-      crime_type: 'Cyber Crime',
-      location: 'Bangalore'
-    },
-    {
-      id: '3',
-      case_id: 'DRG-2024-003',
-      title: 'International Drug Trafficking',
-      status: 'pending_trial',
-      priority: 'high',
-      assigned_officer: 'Narcotics Division',
-      created_date: '2024-01-05',
-      last_updated: '2024-03-18',
-      criminal_count: 8,
-      crime_type: 'Drug Trafficking',
-      location: 'Mumbai'
-    },
-    {
-      id: '4',
-      case_id: 'THE-2024-004',
-      title: 'Jewelry Store Heist',
-      status: 'closed',
-      priority: 'medium',
-      assigned_officer: 'Inspector Kumar',
-      created_date: '2024-02-20',
-      last_updated: '2024-03-15',
-      criminal_count: 2,
-      crime_type: 'Robbery',
-      location: 'Delhi'
-    },
-    {
-      id: '5',
-      case_id: 'FRA-2024-005',
-      title: 'Credit Card Fraud Ring',
-      status: 'open',
-      priority: 'high',
-      assigned_officer: 'Inspector Singh',
-      created_date: '2024-03-01',
-      last_updated: '2024-03-25',
-      criminal_count: 4,
-      crime_type: 'Financial Fraud',
-      location: 'Mumbai'
-    },
-    {
-      id: '6',
-      case_id: 'CBR-2024-006',
-      title: 'Data Breach Investigation',
-      status: 'under_investigation',
-      priority: 'critical',
-      assigned_officer: 'Cyber Crime Unit',
-      created_date: '2024-02-15',
-      last_updated: '2024-03-23',
-      criminal_count: 3,
-      crime_type: 'Cyber Crime',
-      location: 'Hyderabad'
-    }
-  ];
-
+  // Check if cases table exists and fetch cases
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setCases(sampleCases);
-      setLoading(false);
-    }, 1000);
+    checkTableExists();
   }, []);
+
+  const checkTableExists = async () => {
+    try {
+      setLoading(true);
+      
+      // Try to query the table to see if it exists
+      const { error } = await secureSupabase
+        .from('cases')
+        .select('id')
+        .limit(1);
+
+      if (error) {
+        if (error.code === '42P01') { // Table doesn't exist error code
+          setTableExists(false);
+          setError('Cases table does not exist in the database. Please run the migration script first.');
+        } else {
+          throw error;
+        }
+      } else {
+        setTableExists(true);
+        fetchCases();
+      }
+    } catch (err: any) {
+      console.error('Error checking table existence:', err);
+      setError(err.message || 'Failed to check database table');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCases = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data: casesData, error: casesError } = await secureSupabase
+        .from('cases')
+        .select('*');
+      
+      if (casesError) {
+        throw new Error(`Error fetching cases: ${casesError.message}`);
+      }
+
+      if (!casesData) {
+        // If no data but table exists, show empty state
+        setCases([]);
+        return;
+      }
+
+      // Transform the data to match our Case interface
+      const formattedCases: Case[] = casesData.map((caseItem: any) => ({
+        id: caseItem.id,
+        case_id: caseItem.case_id || `CASE-${caseItem.id.substring(0, 8)}`,
+        title: caseItem.title || 'Untitled Case',
+        status: (caseItem.status as 'open' | 'closed' | 'under_investigation' | 'pending_trial') || 'open',
+        priority: (caseItem.priority as 'low' | 'medium' | 'high' | 'critical') || 'medium',
+        assigned_officer: caseItem.assigned_officer || 'Unassigned',
+        created_date: caseItem.created_date || caseItem.created_at,
+        last_updated: caseItem.last_updated || caseItem.updated_at,
+        criminal_count: caseItem.criminal_count || 0,
+        crime_type: caseItem.crime_type || 'Unknown',
+        location: caseItem.location || 'Unknown',
+        description: caseItem.description
+      }));
+
+      setCases(formattedCases);
+    } catch (err: any) {
+      console.error('Error fetching cases:', err);
+      setError(err.message || 'Failed to load cases');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredCases = cases.filter(caseItem => {
     const matchesSearch = 
       caseItem.case_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       caseItem.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       caseItem.assigned_officer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      caseItem.crime_type.toLowerCase().includes(searchTerm.toLowerCase());
+      caseItem.crime_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      caseItem.location.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesFilters = 
       (!filters.status || caseItem.status === filters.status) &&
@@ -178,49 +171,117 @@ export const Cases = () => {
 
   const handleNewCase = () => {
     alert('New Case functionality would open a form here');
-    // In a real app, this would open a modal or navigate to a form
   };
 
   const handleViewDetails = (caseItem: Case) => {
     setSelectedCase(caseItem);
     alert(`Viewing details for case: ${caseItem.case_id}\n${caseItem.title}`);
-    // In a real app, this would open a modal or navigate to details page
   };
 
   const handleEditCase = (caseItem: Case) => {
     alert(`Editing case: ${caseItem.case_id}`);
-    // In a real app, this would open an edit form
   };
 
   const handleDownloadReport = () => {
     alert('Downloading cases report...');
-    // In a real app, this would generate and download a PDF/CSV
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      status: '',
+      priority: '',
+      crime_type: '',
+      date_range: ''
+    });
+    setSearchTerm('');
+  };
+
+  const handleCreateTable = async () => {
+    try {
+      setLoading(true);
+      // This would typically be done through a backend API or migration
+      alert('Table creation requires database migration. Please run the SQL migration script provided.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to create table');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
     return (
       <div className="p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="h-12 bg-gray-200 rounded mb-4"></div>
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-20 bg-gray-200 rounded"></div>
-            ))}
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <Loader className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+            <p className="text-gray-600">Loading cases...</p>
           </div>
         </div>
       </div>
     );
   }
 
+  if (tableExists === false) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+          <div className="flex justify-center mb-4">
+            <Database className="h-12 w-12 text-yellow-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-yellow-800 mb-2">Cases Table Not Found</h2>
+          <p className="text-yellow-700 mb-4">
+            The cases table does not exist in your database. You need to run the migration script first.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={handleCreateTable}
+              className="bg-yellow-600 text-white px-6 py-2 rounded-md hover:bg-yellow-700 transition-colors"
+            >
+              Create Table
+            </button>
+            <div className="text-sm text-yellow-600">
+              <p>Or run this SQL in your Supabase SQL editor:</p>
+              <code className="bg-yellow-100 p-2 rounded text-xs block mt-2 text-left overflow-x-auto">
+                CREATE TABLE cases (id UUID PRIMARY KEY, case_id TEXT, title TEXT, status TEXT, priority TEXT, assigned_officer TEXT, created_date TIMESTAMP, last_updated TIMESTAMP, criminal_count INTEGER, crime_type TEXT, location TEXT, description TEXT);
+              </code>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <div className="flex justify-center mb-4">
+            <AlertCircle className="h-12 w-12 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-red-800 mb-2">Error Loading Cases</h2>
+          <p className="text-red-700 mb-4">{error}</p>
+          <button
+            onClick={fetchCases}
+            className="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Case Management</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Case Management</h1>
+          <p className="text-gray-600 mt-1">Manage and track all criminal cases</p>
+        </div>
         <button 
           onClick={handleNewCase}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors whitespace-nowrap"
         >
           <Plus className="h-4 w-4" />
           New Case
@@ -229,35 +290,35 @@ export const Cases = () => {
 
       {/* Search and Filter Bar */}
       <div className="bg-white p-4 rounded-lg border mb-6 shadow-sm">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+          <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <input
               type="text"
-              placeholder="Search cases by ID, title, officer, or crime type..."
+              placeholder="Search cases by ID, title, officer, crime type, or location..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 w-full lg:w-auto">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
             >
               <Filter className="h-4 w-4" />
-              Filters
+              Filters {showFilters ? '▲' : '▼'}
             </button>
             <button
-              onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={clearFilters}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
             >
-              {viewMode === 'list' ? 'Grid View' : 'List View'}
+              Clear All
             </button>
             <button
               onClick={handleDownloadReport}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
             >
               <Download className="h-4 w-4" />
               Export
@@ -267,7 +328,7 @@ export const Cases = () => {
 
         {/* Filter Options */}
         {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 p-4 bg-gray-50 rounded-lg">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 p-4 bg-gray-50 rounded-lg">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <select
@@ -308,6 +369,9 @@ export const Cases = () => {
                 <option value="Cyber Crime">Cyber Crime</option>
                 <option value="Drug Trafficking">Drug Trafficking</option>
                 <option value="Robbery">Robbery</option>
+                <option value="Theft">Theft</option>
+                <option value="Assault">Assault</option>
+                <option value="Burglary">Burglary</option>
               </select>
             </div>
             <div>
@@ -327,60 +391,111 @@ export const Cases = () => {
         )}
       </div>
 
-      {/* Cases List */}
-      <div className="bg-white rounded-lg border shadow-sm">
-        {/* Table Header */}
-        <div className="grid grid-cols-12 gap-4 p-4 border-b border-gray-200 text-sm font-semibold text-gray-600 bg-gray-50">
-          <div className="col-span-2">Case ID</div>
-          <div className="col-span-3">Title</div>
-          <div className="col-span-1">Status</div>
-          <div className="col-span-1">Priority</div>
-          <div className="col-span-2">Assigned Officer</div>
-          <div className="col-span-2">Last Updated</div>
-          <div className="col-span-1">Actions</div>
+      {/* Results Count */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+        <p className="text-sm text-gray-600">
+          {filteredCases.length} case{filteredCases.length !== 1 ? 's' : ''} found
+          {searchTerm && ` for "${searchTerm}"`}
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">View:</span>
+          <select
+            value={viewMode}
+            onChange={(e) => setViewMode(e.target.value as 'list' | 'grid')}
+            className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="list">List</option>
+            <option value="grid">Grid</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Cases List - Fixed grid layout to prevent overlapping */}
+      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+        {/* Table Header - Responsive grid */}
+        <div className="hidden md:grid md:grid-cols-12 gap-4 p-4 border-b border-gray-200 text-sm font-semibold text-gray-600 bg-gray-50">
+          <div className="md:col-span-2">Case ID</div>
+          <div className="md:col-span-3">Title</div>
+          <div className="md:col-span-1">Status</div>
+          <div className="md:col-span-1">Priority</div>
+          <div className="md:col-span-2">Assigned Officer</div>
+          <div className="md:col-span-2">Last Updated</div>
+          <div className="md:col-span-1 text-center">Actions</div>
         </div>
 
         {/* Cases */}
         {paginatedCases.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            No cases found matching your criteria
+            <div className="mb-4">
+              <Search className="h-12 w-12 text-gray-300 mx-auto" />
+            </div>
+            <p className="text-lg font-medium mb-2">No cases found</p>
+            <p className="text-sm">
+              {searchTerm || Object.values(filters).some(f => f) 
+                ? 'Try adjusting your search or filters' 
+                : 'No cases available in the database'
+              }
+            </p>
           </div>
         ) : (
           paginatedCases.map(caseItem => (
-            <div key={caseItem.id} className="grid grid-cols-12 gap-4 p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors">
-              <div className="col-span-2 font-medium text-blue-600">{caseItem.case_id}</div>
-              <div className="col-span-3">{caseItem.title}</div>
-              <div className="col-span-1">
+            <div key={caseItem.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors items-start md:items-center">
+              {/* Case ID */}
+              <div className="md:col-span-2">
+                <span className="font-mono text-sm text-blue-600 font-medium">{caseItem.case_id}</span>
+              </div>
+              
+              {/* Title and details - stacked on mobile */}
+              <div className="md:col-span-3">
+                <p className="font-medium text-gray-800">{caseItem.title}</p>
+                <p className="text-xs text-gray-500 mt-1">{caseItem.crime_type} • {caseItem.location}</p>
+              </div>
+              
+              {/* Status badge */}
+              <div className="md:col-span-1">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(caseItem.status)}`}>
                   {caseItem.status.replace('_', ' ')}
                 </span>
               </div>
-              <div className="col-span-1">
+              
+              {/* Priority badge */}
+              <div className="md:col-span-1">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(caseItem.priority)}`}>
                   {caseItem.priority}
                 </span>
               </div>
-              <div className="col-span-2 text-sm text-gray-600">{caseItem.assigned_officer}</div>
-              <div className="col-span-2 text-sm text-gray-600">
-                {new Date(caseItem.last_updated).toLocaleDateString()}
+              
+              {/* Assigned Officer */}
+              <div className="md:col-span-2">
+                <p className="text-sm text-gray-800">{caseItem.assigned_officer}</p>
               </div>
-              <div className="col-span-1">
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => handleViewDetails(caseItem)}
-                    className="text-blue-600 hover:text-blue-800 transition-colors p-1 rounded hover:bg-blue-50"
-                    title="View Details"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleEditCase(caseItem)}
-                    className="text-green-600 hover:text-green-800 transition-colors p-1 rounded hover:bg-green-50"
-                    title="Edit Case"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                </div>
+              
+              {/* Last Updated - formatted for mobile */}
+              <div className="md:col-span-2">
+                <p className="text-sm text-gray-600">
+                  {new Date(caseItem.last_updated).toLocaleDateString()}
+                </p>
+                <p className="text-xs text-gray-400 md:mt-1">
+                  {new Date(caseItem.last_updated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+              
+              {/* Action buttons */}
+              <div className="md:col-span-1 flex justify-start md:justify-center gap-2 pt-2 md:pt-0">
+                <button 
+                  onClick={() => handleViewDetails(caseItem)}
+                  className="text-blue-600 hover:text-blue-800 transition-colors p-1 rounded hover:bg-blue-50"
+                  title="View Details"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+                <button 
+                  onClick={() => handleEditCase(caseItem)}
+                  className="text-green-600 hover:text-green-800 transition-colors p-1 rounded hover:bg-green-50"
+                  title="Edit Case"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
               </div>
             </div>
           ))
@@ -388,42 +503,61 @@ export const Cases = () => {
       </div>
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-6">
-        <div className="text-sm text-gray-600">
-          Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredCases.length)} of {filteredCases.length} cases
-        </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Previous
-          </button>
-          
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-            <button
-              key={page}
-              onClick={() => handlePageChange(page)}
-              className={`px-3 py-1 border rounded-md text-sm transition-colors ${
-                currentPage === page
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'border-gray-300 hover:bg-gray-50'
-              }`}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4">
+          <div className="text-sm text-gray-600">
+            Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredCases.length)} of {filteredCases.length} cases
+          </div>
+          <div className="flex gap-1 flex-wrap justify-center">
+            <button 
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {page}
+              Previous
             </button>
-          ))}
-          
-          <button 
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Next
-          </button>
+            
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`px-3 py-2 border rounded-md text-sm transition-colors min-w-[40px] ${
+                    currentPage === pageNum
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            
+            {totalPages > 5 && currentPage < totalPages - 2 && (
+              <span className="px-2 py-2">...</span>
+            )}
+            
+            <button 
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

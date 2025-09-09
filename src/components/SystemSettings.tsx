@@ -201,11 +201,11 @@ export const SystemSettings = () => {
             onClick={exportSettings}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
           >
-            <Download className="h-4 w-4" />
+            <Upload className="h-4 w-4" />
             Export
           </button>
           <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 cursor-pointer">
-            <Upload className="h-4 w-4" />
+            <Download className="h-4 w-4" />
             Import
             <input
               type="file"

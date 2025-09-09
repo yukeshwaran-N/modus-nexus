@@ -1,6 +1,6 @@
 // src/App.tsx
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from '@/components/AppSidebar';
 import Dashboard from '@/components/Dashboard';
@@ -13,7 +13,7 @@ import { CriminalDataEntry } from "@/components/CriminalDataEntry";
 import { CriminalReport } from "@/components/CriminalReport";
 import { SystemSettings } from "@/components/SystemSettings";
 import Chatbot from './components/Chatbot';
-import { Cases } from './components/Cases'; // Cases component imported
+import { Cases } from './components/Cases';
 
 // Define the CriminalRecord interface
 interface CriminalRecord {
@@ -34,17 +34,16 @@ interface CriminalRecord {
   tools_used?: string;
   associates?: string;
   address?: string;
-  [key: string]: any;
+  [key: string]: string | number | undefined;
 }
 
 // Component to sync sidebar state with routing
 function RouteSync({ setActiveView }: { setActiveView: (view: string) => void }) {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const location = window.location;
 
   useEffect(() => {
     // Extract view from pathname and set active view
-    const path = location.pathname.substring(1); // Remove leading slash
+    const path = location.pathname.substring(1);
     if (path) {
       setActiveView(path);
     } else {
@@ -61,6 +60,8 @@ function AppContent() {
   const [chatbotInitialMessage, setChatbotInitialMessage] = useState('');
   const [showChatbot, setShowChatbot] = useState(false);
   const [criminalDataForAnalysis, setCriminalDataForAnalysis] = useState<CriminalRecord | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const handleAskAI = (criminalData: CriminalRecord) => {
     setChatbotInitialMessage(`Analyze criminal: ${criminalData.name}`);
@@ -70,7 +71,6 @@ function AppContent() {
 
   const handleViewChange = (view: string) => {
     setActiveView(view);
-    // Navigate to the corresponding route
     if (view === 'dashboard') {
       window.location.href = '/';
     } else {
@@ -78,14 +78,29 @@ function AppContent() {
     }
   };
 
+  // Calculate main content margin based on sidebar state
+  const mainContentMargin = isMobile 
+    ? "ml-0" 
+    : isSidebarCollapsed 
+      ? "ml-20" 
+      : "ml-64";
+
   return (
     <SidebarProvider>
       <RouteSync setActiveView={setActiveView} />
       
       <div className="min-h-screen flex w-full bg-background">
-        <AppSidebar activeView={activeView} setActiveView={handleViewChange} />
+        <AppSidebar 
+          activeView={activeView} 
+          setActiveView={handleViewChange}
+          isCollapsed={isSidebarCollapsed}
+          setIsCollapsed={setIsSidebarCollapsed}
+          isMobile={isMobile}
+          setIsMobile={setIsMobile}
+        />
         
-        <div className="flex-1 overflow-auto">
+        {/* Main content with dynamic margin */}
+        <div className={`flex-1 overflow-auto transition-all duration-300 ${mainContentMargin}`}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -96,16 +111,15 @@ function AppContent() {
             <Route path="/maps" element={<CrimeHeatmap />} />
             <Route path="/insights" element={<CrimeInsightsPanel />} />
             <Route path="/network" element={<CriminalNetworkGraph />} />
-            <Route path="/criminal-network" element={<CriminalNetworkGraph />} />
             <Route path="/live" element={<LiveFeedPanel />} />
             <Route path="/data-entry" element={<CriminalDataEntry />} />
+            
             <Route path="/reports" element={<CriminalReport />} />
             <Route path="/settings" element={<SystemSettings />} />
-            <Route path="/cases" element={<Cases />} /> {/* Changed to use Cases component */}
+            <Route path="/cases" element={<Cases />} />
           </Routes>
         </div>
         
-        {/* Add Chatbot here */}
         {showChatbot && (
           <Chatbot 
             initialMessage={chatbotInitialMessage}

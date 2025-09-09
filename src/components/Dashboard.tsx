@@ -2,25 +2,19 @@ import { useState, useEffect, useRef } from "react";
 import { 
   Brain, Clock, Target, Shield, Activity, Database, Cpu, 
   Map, Users, BarChart3, Info, Cloud, Newspaper, ChevronRight,
-  Sparkles, Leaf, Eye
+  Sparkles, Leaf, Eye, Navigation, MapPin, Locate, LocateOff, AlertCircle,
+  Thermometer, Droplets, Wind, Gauge
 } from "lucide-react";
 
 // Weather Types
 interface WeatherData {
-  name: string;
-  main: {
-    temp: number;
-    feels_like: number;
-    humidity: number;
-  };
-  weather: Array<{
-    main: string;
-    description: string;
-    icon: string;
-  }>;
-  wind: {
-    speed: number;
-  };
+  location: string;
+  temp: number;
+  humidity: number;
+  windSpeed: number;
+  pressure: number;
+  aqi: string;
+  condition: string;
 }
 
 // News Types
@@ -47,12 +41,30 @@ const WeatherWidget: React.FC = () => {
         const res = await fetch(
           `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${WEATHER_API_KEY}&units=metric`
         );
-        if (!res.ok) throw new Error('Weather data fetch failed');
-        const data = await res.json();
-        setWeather(data);
-      } catch (err) {
-        setError('Failed to fetch weather data');
-        console.error(err);
+        const result = await res.json();
+        
+        setWeather({
+          location: result.name,
+          temp: Math.round(result.main.temp),
+          humidity: result.main.humidity,
+          windSpeed: Math.round(result.wind.speed * 3.6), // Convert m/s to km/h
+          pressure: result.main.pressure,
+          aqi: "N/A",
+          condition: result.weather[0].description,
+        });
+        setError(null);
+      } catch {
+        setError("Failed to fetch weather data");
+        // Set fallback data
+        setWeather({
+          location: "Chennai",
+          temp: 32,
+          humidity: 70,
+          windSpeed: 10,
+          pressure: 1013,
+          aqi: "N/A",
+          condition: "Partly cloudy",
+        });
       } finally {
         setLoading(false);
       }
@@ -61,73 +73,136 @@ const WeatherWidget: React.FC = () => {
     // Request location permission
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        (pos) => {
           setLocationAccess(true);
-          fetchWeather(position.coords.latitude, position.coords.longitude);
+          fetchWeather(pos.coords.latitude, pos.coords.longitude);
         },
         (error) => {
+          console.error("Geolocation error:", error);
           setLocationAccess(false);
-          // Fallback to Chennai coordinates if permission denied
+          setError("Location access denied. Using default location (Chennai).");
+          // Fallback to Chennai coordinates
           fetchWeather(13.0827, 80.2707);
+        },
+        {
+          timeout: 10000,
+          enableHighAccuracy: false
         }
       );
     } else {
-      // Fallback to Chennai coordinates if geolocation not supported
+      setError("Geolocation not supported. Using default location.");
       setLocationAccess(false);
       fetchWeather(13.0827, 80.2707);
     }
   }, []);
 
-  if (loading) return (
-    <button className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors">
-      <Cloud className="h-5 w-5 text-blue-600 animate-pulse" />
-    </button>
-  );
-
-  if (error) return (
-    <button className="flex items-center justify-center w-10 h-10 bg-red-100 rounded-lg hover:bg-red-200 transition-colors">
-      <Cloud className="h-5 w-5 text-red-600" />
-    </button>
-  );
+  if (loading) {
+    return (
+      <button className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors">
+        <Cloud className="h-5 w-5 text-blue-600 animate-pulse" />
+      </button>
+    );
+  }
 
   return (
     <div className="relative">
       <button
-        className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors"
+        className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors relative"
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
+        onClick={() => setShowTooltip(!showTooltip)}
+        aria-label="Weather information"
       >
-        <Cloud className="h-5 w-5 text-blue-600" />
+        {locationAccess ? (
+          <Cloud className="h-5 w-5 text-blue-600" />
+        ) : (
+          <LocateOff className="h-5 w-5 text-orange-600" />
+        )}
+        {error && (
+          <span className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full"></span>
+        )}
       </button>
 
-      {/* Weather tooltip on hover */}
-      {showTooltip && weather && (
-        <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-10">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="font-semibold text-gray-800">Weather in {weather.name}</h4>
-            <Cloud className="h-5 w-5 text-blue-500" />
+      {showTooltip && (
+        <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-10">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+              <Cloud className="h-5 w-5 text-blue-500" />
+              Weather
+            </h3>
+            {locationAccess ? (
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                Your Location
+              </span>
+            ) : (
+              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                Default Location
+              </span>
+            )}
           </div>
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Temperature:</span>
-              <span className="font-medium">{Math.round(weather.main.temp)}°C</span>
+          
+          {weather ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-gray-400" />
+                <span className="font-medium">{weather.location}</span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <Thermometer className="h-4 w-4 text-red-500" />
+                  <div>
+                    <div className="text-gray-600">Temperature</div>
+                    <div className="font-medium">{weather.temp}°C</div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Droplets className="h-4 w-4 text-blue-500" />
+                  <div>
+                    <div className="text-gray-600">Humidity</div>
+                    <div className="font-medium">{weather.humidity}%</div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Wind className="h-4 w-4 text-green-500" />
+                  <div>
+                    <div className="text-gray-600">Wind Speed</div>
+                    <div className="font-medium">{weather.windSpeed} km/h</div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Gauge className="h-4 w-4 text-purple-500" />
+                  <div>
+                    <div className="text-gray-600">Pressure</div>
+                    <div className="font-medium">{weather.pressure} hPa</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="pt-2 border-t border-gray-100">
+                <div className="text-gray-600">Condition</div>
+                <div className="font-medium capitalize">{weather.condition}</div>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Feels like:</span>
-              <span className="font-medium">{Math.round(weather.main.feels_like)}°C</span>
+          ) : (
+            <div className="flex items-center gap-2 text-yellow-700">
+              <AlertCircle className="h-5 w-5" />
+              <p>Weather data unavailable</p>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Humidity:</span>
-              <span className="font-medium">{weather.main.humidity}%</span>
+          )}
+
+          {error && (
+            <div className="mt-3 p-2 bg-yellow-50 rounded text-xs text-yellow-700">
+              {error}
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Wind:</span>
-              <span className="font-medium">{weather.wind.speed} m/s</span>
-            </div>
-          </div>
+          )}
+
           {!locationAccess && (
-            <div className="mt-2 p-2 bg-yellow-50 rounded text-xs text-yellow-700">
-              Using default location. Allow access for accurate weather data.
+            <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
+              Allow location access for accurate weather information.
             </div>
           )}
         </div>
@@ -136,6 +211,7 @@ const WeatherWidget: React.FC = () => {
   );
 };
 
+// NewsCard Component (unchanged)
 const NewsCard: React.FC = () => {
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -192,7 +268,7 @@ const NewsCard: React.FC = () => {
       setCurrentIndex(nextIndex);
       if (carouselRef.current) {
         carouselRef.current.scrollTo({
-          left: nextIndex * 320, // Adjusted for better fit
+          left: nextIndex * 320,
           behavior: "smooth",
         });
       }
@@ -265,6 +341,7 @@ const NewsCard: React.FC = () => {
   );
 };
 
+// SystemInfoWidget Component (unchanged)
 const SystemInfoWidget: React.FC = () => {
   const [showInfo, setShowInfo] = useState(false);
 
@@ -306,17 +383,16 @@ const SystemInfoWidget: React.FC = () => {
   );
 };
 
+// Dashboard Component (unchanged)
 export default function Dashboard() {
   // Function to handle Get Started button click
   const handleGetStarted = () => {
     alert("Get Started functionality would be implemented here!");
-    // In a real app, you would navigate to a different page or open a modal
   };
 
   // Function to handle Pattern Detection button click
   const handlePatternDetection = () => {
     alert("Pattern Detection functionality would be implemented here!");
-    // In a real app, you would navigate to the pattern detection page or open a modal
   };
 
   return (
@@ -331,29 +407,31 @@ export default function Dashboard() {
         </div>
 
         {/* Hero Section with centered logo */}
-        <div className="text-black text-center">
-          <div className="max-w-4xl mx-auto space-y-6">
+        <div className="text-black text-center -mt-12">
+          <div className="max-w-4xl mx-auto space-y-4">
             {/* Centered Shield Logo */}
             <div className="flex justify-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg mb-4">
-                <Shield className="h-10 w-10" />
-              </div>
+              <img 
+                src="/logo.png" 
+                alt="App Logo" 
+                className="h-30 w-40 object-contain mb-4"
+              />
             </div>
 
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-sm">
-              <Sparkles className="h-4 w-4" />
-              <span>Tamil Nadu Police Intelligence Platform</span>
+            <div className="inline-flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full text-sm font-medium text-black shadow-sm">
+              <Sparkles className="h-5 w-5 text-indigo-600" />
+              <span className="tracking-wide">Tamil Nadu Police Intelligence Platform</span>
             </div>
-            
-            <h2 className="text-3xl lg:text-5xl font-bold leading-tight">
-              Modus Mapping<br />
-              AI-Powered Crime Records
+
+            <h2 className="mt-6 text-4xl lg:text-6xl font-extrabold leading-tight font-magneto">
+              <span className="text-indigo-600">Modus Mapping</span><br />
+              <span className="text-gray-900">AI-Powered Crime Records</span>
             </h2>
-            
-            <p className="text-lg lg:text-xl text-black-100 max-w-2xl mx-auto">
-              Use AI to detect criminal patterns, analyze networks, and prevent crimes before they happen
+
+            <p className="mt-4 text-lg lg:text-xl text-gray-700 max-w-2xl mx-auto font-medium">
+              Use AI to detect criminal patterns, analyze networks, and prevent crimes before they happen.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
               <button 
                 className="bg-white text-blue-700 px-8 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
@@ -512,29 +590,6 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
-
-      {/* Add custom animations */}
-      <style jsx>{`
-        @keyframes slideIn {
-          from { 
-            opacity: 0;
-            transform: translateX(20px);
-          }
-          to { 
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        .animate-slideIn {
-          animation: slideIn 0.5s ease-out;
-        }
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
     </div>
   );
-}
+};

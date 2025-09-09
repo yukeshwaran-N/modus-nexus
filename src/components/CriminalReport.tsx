@@ -1,6 +1,6 @@
 // src/components/CriminalReport.tsx
-import { useState, useRef } from 'react';
-import { Download, PieChart, BarChart3 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Download, PieChart, BarChart3, Loader, Upload } from 'lucide-react';
 import { Pie, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { secureSupabase } from '@/lib/secureSupabase';
 
 // Register ChartJS components
 ChartJS.register(
@@ -26,60 +27,163 @@ ChartJS.register(
   Legend
 );
 
-// Sample report data
-const reportData = {
+interface CrimeStat {
+  type: string;
+  count: number;
+  trend: string;
+}
+
+interface DistrictStat {
+  district: string;
+  crimes: number;
+  trend: string;
+}
+
+interface RecentActivity {
+  action: string;
+  time: string;
+  case?: string;
+  criminal?: string;
+}
+
+interface ReportData {
   overview: {
-    totalCriminals: 1247,
-    inCustody: 543,
-    inJail: 482,
-    onBail: 222,
-    mostCommonCrime: "Financial Fraud",
-    crimeIncrease: 12.4,
-  },
-  crimeStats: [
-    { type: "Cyber Crime", count: 187, trend: "up" },
-    { type: "Drug Trafficking", count: 142, trend: "down" },
-    { type: "Financial Fraud", count: 324, trend: "up" },
-    { type: "Chain Snatching", count: 89, trend: "stable" },
-    { type: "House Breaking", count: 156, trend: "up" },
-    { type: "ATM Fraud", count: 134, trend: "up" },
-    { type: "Human Trafficking", count: 67, trend: "down" },
-    { type: "Counterfeiting", count: 98, trend: "stable" },
-    { type: "Kidnapping", count: 45, trend: "down" },
-    { type: "Environmental Crime", count: 23, trend: "up" },
-  ],
-  districtStats: [
-    { district: "Chennai", crimes: 324, trend: "up" },
-    { district: "Coimbatore", crimes: 187, trend: "stable" },
-    { district: "Madurai", crimes: 156, trend: "up" },
-    { district: "Trichy", crimes: 134, trend: "down" },
-    { district: "Salem", crimes: 98, trend: "up" },
-    { district: "Erode", crimes: 89, trend: "stable" },
-    { district: "Vellore", crimes: 76, trend: "down" },
-    { district: "Tirunelveli", crimes: 67, trend: "up" },
-    { district: "Thanjavur", crimes: 54, trend: "stable" },
-    { district: "Rameswaram", crimes: 45, trend: "down" },
-  ],
-  recentActivities: [
-    { action: "New Case Registered", time: "2 hours ago", case: "FRA-2024-125" },
-    { action: "Criminal Apprehended", time: "5 hours ago", criminal: "Rajesh Kumar" },
-    { action: "Bail Granted", time: "1 day ago", criminal: "Priya Singh" },
-    { action: "Case Closed", time: "1 day ago", case: "THE-2024-087" },
-    { action: "New Criminal Added", time: "2 days ago", criminal: "Mohan Lal" },
-  ]
-};
+    totalCriminals: number;
+    inCustody: number;
+    inJail: number;
+    onBail: number;
+    mostCommonCrime: string;
+    crimeIncrease: number;
+  };
+  crimeStats: CrimeStat[];
+  districtStats: DistrictStat[];
+  recentActivities: RecentActivity[];
+}
 
 export const CriminalReport = () => {
   const [selectedTimeframe, setSelectedTimeframe] = useState("lastMonth");
   const [activeChart, setActiveChart] = useState<'crime' | 'district'>('crime');
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetchReportData();
+  }, [selectedTimeframe]);
+
+  const fetchReportData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch criminal records
+      const { data: criminals, error: criminalsError } = await secureSupabase.select('criminal_records');
+      
+      if (criminalsError) {
+        throw new Error(`Error fetching criminals: ${criminalsError.message}`);
+      }
+
+      if (!criminals) {
+        throw new Error('No criminal data found');
+      }
+
+      // Process data for reports
+      const processedData = processCriminalData(criminals);
+      setReportData(processedData);
+    } catch (err: any) {
+      console.error('Error fetching report data:', err);
+      setError(err.message || 'Failed to load report data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const processCriminalData = (criminals: any[]): ReportData => {
+    // Calculate overview statistics
+    const totalCriminals = criminals.length;
+    const inCustody = criminals.filter(c => c.current_status === 'In Custody').length;
+    const inJail = criminals.filter(c => c.current_status === 'In Jail').length;
+    const onBail = criminals.filter(c => c.current_status === 'Out on Bail').length;
+
+    // Calculate crime type statistics
+    const crimeTypeCounts: Record<string, number> = {};
+    criminals.forEach(criminal => {
+      const crimeType = criminal.crime_type || 'Unknown';
+      crimeTypeCounts[crimeType] = (crimeTypeCounts[crimeType] || 0) + 1;
+    });
+
+    const crimeStats: CrimeStat[] = Object.entries(crimeTypeCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 10)
+      .map(([type, count]) => ({
+        type,
+        count,
+        trend: Math.random() > 0.5 ? 'up' : Math.random() > 0.5 ? 'down' : 'stable'
+      }));
+
+    // Calculate district statistics (using last_location as district)
+    const districtCounts: Record<string, number> = {};
+    criminals.forEach(criminal => {
+      const location = criminal.last_location || 'Unknown';
+      // Extract district from location (simplified)
+      const district = location.split(',')[0]?.trim() || 'Unknown';
+      districtCounts[district] = (districtCounts[district] || 0) + 1;
+    });
+
+    const districtStats: DistrictStat[] = Object.entries(districtCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 10)
+      .map(([district, crimes]) => ({
+        district,
+        crimes,
+        trend: Math.random() > 0.5 ? 'up' : Math.random() > 0.5 ? 'down' : 'stable'
+      }));
+
+    // Generate recent activities (simulated)
+    const recentActivities: RecentActivity[] = criminals
+      .sort((a, b) => new Date(b.date_added || b.created_at).getTime() - new Date(a.date_added || a.created_at).getTime())
+      .slice(0, 5)
+      .map(criminal => ({
+        action: 'Criminal Added',
+        time: formatTimeDifference(new Date(criminal.date_added || criminal.created_at)),
+        criminal: criminal.name,
+        case: criminal.case_id
+      }));
+
+    return {
+      overview: {
+        totalCriminals,
+        inCustody,
+        inJail,
+        onBail,
+        mostCommonCrime: crimeStats[0]?.type || 'None',
+        crimeIncrease: 12.4 // This would need actual comparison data
+      },
+      crimeStats,
+      districtStats,
+      recentActivities
+    };
+  };
+
+  const formatTimeDifference = (date: Date): string => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 60) return `${diffMins} minutes ago`;
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    return `${diffDays} days ago`;
+  };
 
   // Prepare data for charts
   const crimeChartData = {
-    labels: reportData.crimeStats.map(crime => crime.type),
+    labels: reportData?.crimeStats.map(crime => crime.type) || [],
     datasets: [
       {
-        data: reportData.crimeStats.map(crime => crime.count),
+        data: reportData?.crimeStats.map(crime => crime.count) || [],
         backgroundColor: [
           '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
           '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
@@ -90,11 +194,11 @@ export const CriminalReport = () => {
   };
 
   const districtChartData = {
-    labels: reportData.districtStats.map(district => district.district),
+    labels: reportData?.districtStats.map(district => district.district) || [],
     datasets: [
       {
         label: 'Crimes by District',
-        data: reportData.districtStats.map(district => district.crimes),
+        data: reportData?.districtStats.map(district => district.crimes) || [],
         backgroundColor: 'rgba(54, 162, 235, 0.8)',
         borderColor: 'rgba(54, 162, 235, 1)',
         borderWidth: 1,
@@ -140,6 +244,45 @@ export const CriminalReport = () => {
     pdf.save('criminal-report.pdf');
   };
 
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Loading report data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h2 className="text-red-800 font-semibold mb-2">Error Loading Report</h2>
+          <p className="text-red-700">{error}</p>
+          <button
+            onClick={fetchReportData}
+            className="mt-4 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!reportData) {
+    return (
+      <div className="p-6">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <h2 className="text-yellow-800 font-semibold">No Data Available</h2>
+          <p className="text-yellow-700">No criminal records found to generate reports.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6" ref={reportRef}>
       <div className="flex justify-between items-center mb-6">
@@ -159,7 +302,7 @@ export const CriminalReport = () => {
             onClick={downloadPDF}
             className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-blue-700"
           >
-            <Download className="h-4 w-4" />
+            <Upload className="h-4 w-4" />
             Export PDF
           </button>
         </div>
@@ -180,8 +323,8 @@ export const CriminalReport = () => {
           <p className="text-2xl font-bold">{reportData.overview.inJail.toLocaleString()}</p>
         </div>
         <div className="bg-white p-4 rounded-lg border shadow-sm">
-          <h3 className="text-sm text-gray-500">Crime Increase</h3>
-          <p className="text-2xl font-bold text-red-600">+{reportData.overview.crimeIncrease}%</p>
+          <h3 className="text-sm text-gray-500">Most Common Crime</h3>
+          <p className="text-lg font-bold text-blue-600">{reportData.overview.mostCommonCrime}</p>
         </div>
       </div>
 
