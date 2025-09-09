@@ -113,7 +113,7 @@ function AppContent() {
             <Route path="/network" element={<CriminalNetworkGraph />} />
             <Route path="/live" element={<LiveFeedPanel />} />
             <Route path="/data-entry" element={<CriminalDataEntry />} />
-            
+            <Route path="/criminal-network" element={<CriminalNetworkGraph />} />
             <Route path="/reports" element={<CriminalReport />} />
             <Route path="/settings" element={<SystemSettings />} />
             <Route path="/cases" element={<Cases />} />
