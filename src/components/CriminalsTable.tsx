@@ -269,14 +269,72 @@ export function CriminalsTable({ onAskAI }: CriminalsTableProps) {
   const [viewingRecord, setViewingRecord] = useState<CriminalRecord | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  // Ensure all records have IDs with proper typing
-  const recordsWithIds = useMemo(() => {
+  // FIXED: Handle different data formats from useCriminalRecords
+  // FIXED: Handle different data formats from useCriminalRecords with proper typing
+const safeRecords = useMemo(() => {
+  console.log('Raw records from hook:', records);
+  
+  // Handle case where records might be null, undefined
+  if (!records) {
+    console.log('Records is null or undefined');
+    return [];
+  }
+  
+  // Handle case where records is an object with data property
+  if (typeof records === 'object' && records !== null && !Array.isArray(records)) {
+    console.log('Records is an object, checking for data property');
+    
+    // Use type assertion to handle the object case
+    const recordsObj = records as any;
+    
+    // If records has a data property that is an array
+    if (recordsObj.data && Array.isArray(recordsObj.data)) {
+      console.log('Found data array in records object');
+      return recordsObj.data.map((record: any, index: number) => ({
+        ...record,
+        id: record.id || `record-${index}-${Math.random().toString(36).substr(2, 9)}`
+      })) as CriminalRecord[];
+    }
+    
+    // If records is an object but we can convert it to an array
+    if (Object.keys(recordsObj).length > 0) {
+      console.log('Converting object to array');
+      // Check if it's an object with numeric keys (like {0: {}, 1: {}})
+      const hasNumericKeys = Object.keys(recordsObj).every(key => !isNaN(Number(key)));
+      
+      if (hasNumericKeys) {
+        return Object.values(recordsObj).map((record: any, index: number) => ({
+          ...record,
+          id: record.id || `record-${index}-${Math.random().toString(36).substr(2, 9)}`
+        })) as CriminalRecord[];
+      }
+      
+      // If it's a single record object, wrap it in an array
+      if (recordsObj.case_id || recordsObj.name) {
+        console.log('Single record object found, wrapping in array');
+        return [{
+          ...recordsObj,
+          id: recordsObj.id || `record-0-${Math.random().toString(36).substr(2, 9)}`
+        }] as CriminalRecord[];
+      }
+    }
+    
+    console.log('Records is an object but cannot be converted to array:', recordsObj);
+    return [];
+  }
+  
+  // Handle case where records is already an array
+  if (Array.isArray(records)) {
+    console.log('Records is already an array');
     return records.map((record, index) => ({
       ...record,
       id: record.id || `record-${index}-${Math.random().toString(36).substr(2, 9)}`
     })) as CriminalRecord[];
-  }, [records]);
-
+  }
+  
+  console.error('Unknown records format:', records);
+  return [];
+}, [records]);
   // Toggle row expansion
   const toggleRowExpansion = (id: string) => {
     setExpandedRows(prev => {
@@ -292,7 +350,7 @@ export function CriminalsTable({ onAskAI }: CriminalsTableProps) {
 
   // Filter and sort records
   const filteredAndSortedRecords = useMemo(() => {
-    let filteredRecords = recordsWithIds.filter(record => {
+    let filteredRecords = safeRecords.filter(record => {
       // Search across multiple fields
       const matchesSearch = 
         !searchTerm || 
@@ -336,7 +394,7 @@ export function CriminalsTable({ onAskAI }: CriminalsTableProps) {
     }
 
     return filteredRecords;
-  }, [recordsWithIds, searchTerm, sortConfig, filters]);
+  }, [safeRecords, searchTerm, sortConfig, filters]);
 
   // Handle sorting
   const handleSort = (key: string) => {
@@ -373,19 +431,40 @@ export function CriminalsTable({ onAskAI }: CriminalsTableProps) {
   // Get unique values for filter dropdowns
   const uniqueValues = (key: keyof CriminalRecord) => {
     return Array.from(
-      new Set(recordsWithIds.map(record => record[key] || '').filter(Boolean))
+      new Set(safeRecords.map(record => record[key] || '').filter(Boolean))
     ).sort() as string[];
   };
 
-  if (loading) return <div className="flex justify-center items-center h-64">Loading...</div>;
-  if (error) return <div className="text-red-600 p-4">Error: {error}</div>;
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64 bg-white rounded-2xl p-6">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading criminal records...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="bg-white rounded-2xl p-6">
+        <div className="text-red-600 p-4 bg-red-50 rounded-lg">
+          <h3 className="font-semibold mb-2">Error Loading Data</h3>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Criminal Database</h2>
         <div className="text-sm text-gray-500">
-          {filteredAndSortedRecords.length} of {recordsWithIds.length} records
+          {filteredAndSortedRecords.length} of {safeRecords.length} records
         </div>
       </div>
 
@@ -508,7 +587,7 @@ export function CriminalsTable({ onAskAI }: CriminalsTableProps) {
             {filteredAndSortedRecords.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                  No criminal records found matching your criteria
+                  {safeRecords.length === 0 ? 'No criminal records found' : 'No records matching your criteria'}
                 </td>
               </tr>
             ) : (

@@ -14,6 +14,8 @@ import { CriminalReport } from "@/components/CriminalReport";
 import { SystemSettings } from "@/components/SystemSettings";
 import Chatbot from './components/Chatbot';
 import { Cases } from './components/Cases';
+import { SetupWizard } from '@/components/SetupWizard';
+import { EncryptionTest } from '@/components/EncryptionTest';
 
 // Define the CriminalRecord interface
 interface CriminalRecord {
@@ -35,6 +37,13 @@ interface CriminalRecord {
   associates?: string;
   address?: string;
   [key: string]: string | number | undefined;
+}
+
+// Extend Window interface for encryption key
+declare global {
+  interface Window {
+    ENCRYPTION_KEY: string;
+  }
 }
 
 // Component to sync sidebar state with routing
@@ -62,6 +71,41 @@ function AppContent() {
   const [criminalDataForAnalysis, setCriminalDataForAnalysis] = useState<CriminalRecord | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Set encryption key for browser environment
+  // In your App.tsx, update the useEffect hook:
+useEffect(() => {
+  if (typeof window !== 'undefined') {
+    // Use Vite environment variable first (most secure)
+    if (import.meta.env.VITE_ENCRYPTION_KEY) {
+      window.ENCRYPTION_KEY = import.meta.env.VITE_ENCRYPTION_KEY;
+      console.log('Encryption key loaded from Vite environment');
+      return;
+    }
+    
+    // Use global variable (set by Vite config)
+    if (typeof globalThis !== 'undefined' && (globalThis as any).ENCRYPTION_KEY) {
+      window.ENCRYPTION_KEY = (globalThis as any).ENCRYPTION_KEY;
+      console.log('Encryption key loaded from global variable');
+      return;
+    }
+    
+    // Fallback to meta tag
+    const metaKey = document.querySelector('meta[name="encryption-key"]');
+    if (metaKey) {
+      const key = metaKey.getAttribute('content');
+      if (key) {
+        window.ENCRYPTION_KEY = key;
+        console.log('Encryption key loaded from meta tag');
+        return;
+      }
+    }
+    
+    // Final fallback for development
+    window.ENCRYPTION_KEY = 'dev-encryption-key-32-chars-long!';
+    console.log('Using development fallback encryption key');
+  }
+}, []);
 
   const handleAskAI = (criminalData: CriminalRecord) => {
     setChatbotInitialMessage(`Analyze criminal: ${criminalData.name}`);
@@ -117,6 +161,8 @@ function AppContent() {
             <Route path="/reports" element={<CriminalReport />} />
             <Route path="/settings" element={<SystemSettings />} />
             <Route path="/cases" element={<Cases />} />
+            <Route path="/setup" element={<SetupWizard />} />
+            <Route path="/encryption-test" element={<EncryptionTest />} />
           </Routes>
         </div>
         

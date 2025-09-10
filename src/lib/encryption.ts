@@ -1,94 +1,128 @@
+// src/lib/encryption.ts
 import CryptoJS from 'crypto-js';
 
-// Get encryption key from environment variables
-const ENCRYPTION_KEY = import.meta.env.VITE_ENCRYPTION_KEY || 'fallback-encryption-key-for-development-2024';
-
-// List of fields that should be encrypted for each table
+// Encryption configuration - define which fields to encrypt for each table
 export const ENCRYPTION_CONFIG: Record<string, string[]> = {
   criminal_records: [
     'name',
     'phone_number',
     'email',
-    'last_location',
+    'address',
+    'address_line',
+    'city',
+    'state',
+    'country',
+    'nationality',
+    'bio',
     'modus_operandi',
     'tools_used',
-    'known_associates',
+    'associates',
     'connected_criminals',
-    'address',
-    'personal_details'
-  ],
-  cases: [
-    'case_details',
-    'victim_info',
-    'witness_info',
-    'officer_notes',
-    'confidential_notes'
+    'known_associates',
+    'case_progress_timeline',
+    'last_location'
   ],
   users: [
     'email',
     'phone_number',
-    'personal_notes'
+    'address'
   ]
 };
 
-// Encrypt data
-export const encryptData = (data: string): string => {
-  try {
-    if (!data) return data;
-    return CryptoJS.AES.encrypt(data, ENCRYPTION_KEY).toString();
-  } catch (error) {
-    console.error('Encryption error:', error);
-    throw new Error('Failed to encrypt data');
+// Get encryption key from environment variables
+const getEncryptionKey = (): string => {
+  // Try Vite environment variables first
+  if (import.meta.env.VITE_ENCRYPTION_KEY) {
+    console.log('Using encryption key from Vite environment');
+    return import.meta.env.VITE_ENCRYPTION_KEY;
   }
-};
-
-// Decrypt data
-export const decryptData = (encryptedData: string): string => {
-  try {
-    if (!encryptedData) return encryptedData;
-    const bytes = CryptoJS.AES.decrypt(encryptedData, ENCRYPTION_KEY);
-    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-    return decrypted || encryptedData; // Return original if decryption fails
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return encryptedData; // Return original if decryption fails
+  
+  // Try global variable (set by Vite config)
+  if (typeof globalThis !== 'undefined' && (globalThis as any).ENCRYPTION_KEY) {
+    console.log('Using encryption key from globalThis');
+    return (globalThis as any).ENCRYPTION_KEY;
   }
+  
+  // Try window variable
+  if (typeof window !== 'undefined' && (window as any).ENCRYPTION_KEY) {
+    console.log('Using encryption key from window');
+    return (window as any).ENCRYPTION_KEY;
+  }
+  
+  // Try meta tag
+  if (typeof document !== 'undefined') {
+    const metaKey = document.querySelector('meta[name="encryption-key"]');
+    if (metaKey && metaKey.getAttribute('content')) {
+      console.log('Using encryption key from meta tag');
+      return metaKey.getAttribute('content') as string;
+    }
+  }
+  
+  // Final fallback for development
+  console.log('Using development fallback encryption key');
+  return 'dev-fallback-encryption-key-32-chars-long!';
 };
 
-// Encrypt specific fields in an object
-export const encryptObjectFields = (obj: any, tableName: string): any => {
-  if (!obj) return obj;
-  
-  const encryptedObj = { ...obj };
-  const fieldsToEncrypt = ENCRYPTION_CONFIG[tableName] || [];
-  
-  fieldsToEncrypt.forEach(field => {
-    if (encryptedObj[field] && typeof encryptedObj[field] === 'string') {
-      encryptedObj[field] = encryptData(encryptedObj[field]);
-    }
-  });
-  
-  return encryptedObj;
-};
-
-// Decrypt specific fields in an object
-export const decryptObjectFields = (obj: any, tableName: string): any => {
-  if (!obj) return obj;
-  
-  const decryptedObj = { ...obj };
-  const fieldsToDecrypt = ENCRYPTION_CONFIG[tableName] || [];
-  
-  fieldsToDecrypt.forEach(field => {
-    if (decryptedObj[field] && typeof decryptedObj[field] === 'string') {
-      decryptedObj[field] = decryptData(decryptedObj[field]);
-    }
-  });
-  
-  return decryptedObj;
-};
+const ENCRYPTION_KEY = getEncryptionKey();
 
 // Check if encryption is properly configured
 export const isEncryptionConfigured = (): boolean => {
-  return import.meta.env.VITE_ENCRYPTION_KEY !== undefined &&
-         import.meta.env.VITE_ENCRYPTION_KEY.length >= 32;
+  const key = getEncryptionKey();
+  const isConfigured = key !== 'dev-fallback-encryption-key-32-chars-long!' && key.length >= 32;
+  console.log('Encryption configured:', isConfigured, 'Key length:', key.length);
+  return isConfigured;
+};
+
+export const encryptData = (data: string): string => {
+  if (!data) return data;
+  try {
+    return CryptoJS.AES.encrypt(data, ENCRYPTION_KEY).toString();
+  } catch (error) {
+    console.error('Encryption error:', error);
+    return data;
+  }
+};
+
+export const decryptData = (encryptedData: string): string => {
+  if (!encryptedData) return encryptedData;
+  try {
+    const bytes = CryptoJS.AES.decrypt(encryptedData, ENCRYPTION_KEY);
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+    return decrypted || encryptedData;
+  } catch (error) {
+    console.error('Decryption error:', error);
+    return encryptedData;
+  }
+};
+
+// Helper function to encrypt object fields based on table
+export const encryptObjectFields = (obj: any, table: string): any => {
+  if (!obj || !isEncryptionConfigured()) return obj;
+  
+  const encrypted = { ...obj };
+  const fieldsToEncrypt = ENCRYPTION_CONFIG[table] || [];
+  
+  fieldsToEncrypt.forEach(field => {
+    if (encrypted[field] && typeof encrypted[field] === 'string') {
+      encrypted[field] = encryptData(encrypted[field]);
+    }
+  });
+  
+  return encrypted;
+};
+
+// Helper function to decrypt object fields based on table
+export const decryptObjectFields = (obj: any, table: string): any => {
+  if (!obj || !isEncryptionConfigured()) return obj;
+  
+  const decrypted = { ...obj };
+  const fieldsToDecrypt = ENCRYPTION_CONFIG[table] || [];
+  
+  fieldsToDecrypt.forEach(field => {
+    if (decrypted[field] && typeof decrypted[field] === 'string') {
+      decrypted[field] = decryptData(decrypted[field]);
+    }
+  });
+  
+  return decrypted;
 };

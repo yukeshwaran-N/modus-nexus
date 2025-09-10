@@ -55,27 +55,37 @@ export function CriminalNetworkGraph() {
     }
   }, [networkData, filter, searchTerm]);
 
-  const fetchNetworkData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch criminal records using secureSupabase
-      const { data: criminals, error } = await secureSupabase.select('criminal_records');
-      
-      if (error) {
-        console.error('Error fetching criminals:', error);
-        return;
-      }
-      
-      if (!criminals) return;
-      
-      // Process data into nodes and links
-      const nodes: CriminalNode[] = [];
-      const links: CriminalLink[] = [];
-      const connectionCount: Record<string, number> = {};
-      
-      // Create nodes
-      criminals.forEach(criminal => {
+  // Replace your fetchNetworkData function with this improved version
+
+const fetchNetworkData = async () => {
+  try {
+    setLoading(true);
+    
+    // Fetch criminal records using secureSupabase
+    const { data: criminals, error } = await secureSupabase.select('criminal_records');
+    
+    if (error) {
+      console.error('Error fetching criminals:', error);
+      setNetworkData({ nodes: [], links: [] });
+      return;
+    }
+    
+    if (!criminals || criminals.length === 0) {
+      console.log('No criminal records found in database');
+      setNetworkData({ nodes: [], links: [] });
+      return;
+    }
+    
+    console.log('Fetched criminals:', criminals.length);
+    
+    // Process data into nodes and links
+    const nodes: CriminalNode[] = [];
+    const links: CriminalLink[] = [];
+    const connectionCount: Record<string, number> = {};
+    
+    // Create nodes from all criminals
+    criminals.forEach(criminal => {
+      if (criminal.case_id && criminal.name) {
         nodes.push({
           id: criminal.case_id,
           name: criminal.name,
@@ -85,20 +95,27 @@ export function CriminalNetworkGraph() {
         });
         
         connectionCount[criminal.case_id] = 0;
-      });
+      }
+    });
+    
+    console.log('Created nodes:', nodes.length);
+    
+    // Create links based on different connection types
+    criminals.forEach(criminal => {
+      if (!criminal.case_id) return;
       
-      // Create links based on different connection types
-      criminals.forEach(criminal => {
-        // Connections through known associates
-        if (criminal.known_associates) {
-          const associates = criminal.known_associates.split(',').map(a => a.trim());
+      // Connections through known associates
+      if (criminal.known_associates) {
+        try {
+          const associates = criminal.known_associates.split(',').map(a => a.trim()).filter(a => a.length > 0);
           associates.forEach(associate => {
             const connectedCriminal = criminals.find(c => 
-              c.name.toLowerCase().includes(associate.toLowerCase()) || 
-              associate.toLowerCase().includes(c.name.toLowerCase())
+              c.name && associate && 
+              (c.name.toLowerCase().includes(associate.toLowerCase()) || 
+               associate.toLowerCase().includes(c.name.toLowerCase()))
             );
             
-            if (connectedCriminal && connectedCriminal.case_id !== criminal.case_id) {
+            if (connectedCriminal && connectedCriminal.case_id && connectedCriminal.case_id !== criminal.case_id) {
               links.push({
                 source: criminal.case_id,
                 target: connectedCriminal.case_id,
@@ -109,18 +126,23 @@ export function CriminalNetworkGraph() {
               connectionCount[connectedCriminal.case_id]++;
             }
           });
+        } catch (e) {
+          console.warn('Error processing known_associates:', e);
         }
-        
-        // Connections through connected criminals field
-        if (criminal.connected_criminals) {
-          const connections = criminal.connected_criminals.split(',').map(c => c.trim());
+      }
+      
+      // Connections through connected criminals field
+      if (criminal.connected_criminals) {
+        try {
+          const connections = criminal.connected_criminals.split(',').map(c => c.trim()).filter(c => c.length > 0);
           connections.forEach(connection => {
             const connectedCriminal = criminals.find(c => 
-              c.name.toLowerCase().includes(connection.toLowerCase()) || 
-              connection.toLowerCase().includes(c.name.toLowerCase())
+              c.name && connection &&
+              (c.name.toLowerCase().includes(connection.toLowerCase()) || 
+               connection.toLowerCase().includes(c.name.toLowerCase()))
             );
             
-            if (connectedCriminal && connectedCriminal.case_id !== criminal.case_id) {
+            if (connectedCriminal && connectedCriminal.case_id && connectedCriminal.case_id !== criminal.case_id) {
               links.push({
                 source: criminal.case_id,
                 target: connectedCriminal.case_id,
@@ -131,14 +153,21 @@ export function CriminalNetworkGraph() {
               connectionCount[connectedCriminal.case_id]++;
             }
           });
+        } catch (e) {
+          console.warn('Error processing connected_criminals:', e);
         }
+      }
+      
+      // Connections through same crime type (only if we have at least 2 criminals with same crime type)
+      if (criminal.crime_type) {
+        const sameCrimeCriminals = criminals.filter(c => 
+          c.crime_type && c.case_id &&
+          c.crime_type === criminal.crime_type && 
+          c.case_id !== criminal.case_id
+        );
         
-        // Connections through same crime type
-        if (criminal.crime_type) {
-          criminals.filter(c => 
-            c.crime_type === criminal.crime_type && 
-            c.case_id !== criminal.case_id
-          ).forEach(sameCrimeCriminal => {
+        if (sameCrimeCriminals.length > 0) {
+          sameCrimeCriminals.forEach(sameCrimeCriminal => {
             links.push({
               source: criminal.case_id,
               target: sameCrimeCriminal.case_id,
@@ -149,44 +178,49 @@ export function CriminalNetworkGraph() {
             connectionCount[sameCrimeCriminal.case_id]++;
           });
         }
-      });
-      
-      // Update node values based on connection count
-      nodes.forEach(node => {
-        node.value = Math.max(1, connectionCount[node.id] || 1);
-      });
-      
-      // Apply filters
-      let filteredNodes = nodes;
-      let filteredLinks = links;
-      
-      if (filter !== 'all') {
-        filteredNodes = nodes.filter(node => node.crime_type === filter);
-        filteredLinks = links.filter(link => 
-          filteredNodes.some(node => node.id === link.source) && 
-          filteredNodes.some(node => node.id === link.target)
-        );
       }
-      
-      if (searchTerm) {
-        filteredNodes = filteredNodes.filter(node => 
-          node.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          node.crime_type.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        filteredLinks = filteredLinks.filter(link => 
-          filteredNodes.some(node => node.id === link.source) && 
-          filteredNodes.some(node => node.id === link.target)
-        );
-      }
-      
-      setNetworkData({ nodes: filteredNodes, links: filteredLinks });
-    } catch (error) {
-      console.error('Error processing network data:', error);
-    } finally {
-      setLoading(false);
+    });
+    
+    console.log('Created links:', links.length);
+    
+    // Update node values based on connection count
+    nodes.forEach(node => {
+      node.value = Math.max(1, connectionCount[node.id] || 1);
+    });
+    
+    // Apply filters
+    let filteredNodes = nodes;
+    let filteredLinks = links;
+    
+    if (filter !== 'all') {
+      filteredNodes = nodes.filter(node => node.crime_type === filter);
+      filteredLinks = links.filter(link => 
+        filteredNodes.some(node => node.id === link.source) && 
+        filteredNodes.some(node => node.id === link.target)
+      );
     }
-  };
-
+    
+    if (searchTerm) {
+      filteredNodes = filteredNodes.filter(node => 
+        node.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        node.crime_type.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      filteredLinks = filteredLinks.filter(link => 
+        filteredNodes.some(node => node.id === link.source) && 
+        filteredNodes.some(node => node.id === link.target)
+      );
+    }
+    
+    console.log('Filtered nodes:', filteredNodes.length, 'Filtered links:', filteredLinks.length);
+    setNetworkData({ nodes: filteredNodes, links: filteredLinks });
+    
+  } catch (error) {
+    console.error('Error processing network data:', error);
+    setNetworkData({ nodes: [], links: [] });
+  } finally {
+    setLoading(false);
+  }
+};
   const renderNetwork = () => {
     if (!svgRef.current) return;
 

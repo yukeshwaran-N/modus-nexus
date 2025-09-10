@@ -1,7 +1,7 @@
 // src/components/Cases.tsx
 import { useState, useEffect } from 'react';
 import { Search, Filter, Plus, Eye, Edit, Download, MoreVertical, Loader, Database, AlertCircle } from 'lucide-react';
-import { secureSupabase } from '@/lib/secureSupabase';
+import { supabase } from '@/lib/supabase'; // Use the regular supabase client
 
 // Types
 interface Case {
@@ -54,7 +54,7 @@ export const Cases = () => {
       setLoading(true);
       
       // Try to query the table to see if it exists
-      const { error } = await secureSupabase
+      const { error } = await supabase
         .from('cases')
         .select('id')
         .limit(1);
@@ -83,7 +83,7 @@ export const Cases = () => {
       setLoading(true);
       setError(null);
       
-      const { data: casesData, error: casesError } = await secureSupabase
+      const { data: casesData, error: casesError } = await supabase
         .from('cases')
         .select('*');
       
@@ -242,7 +242,7 @@ export const Cases = () => {
             <div className="text-sm text-yellow-600">
               <p>Or run this SQL in your Supabase SQL editor:</p>
               <code className="bg-yellow-100 p-2 rounded text-xs block mt-2 text-left overflow-x-auto">
-                CREATE TABLE cases (id UUID PRIMARY KEY, case_id TEXT, title TEXT, status TEXT, priority TEXT, assigned_officer TEXT, created_date TIMESTAMP, last_updated TIMESTAMP, criminal_count INTEGER, crime_type TEXT, location TEXT, description TEXT);
+                CREATE TABLE cases (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), case_id TEXT, title TEXT, status TEXT, priority TEXT, assigned_officer TEXT, created_date TIMESTAMP DEFAULT now(), last_updated TIMESTAMP DEFAULT now(), criminal_count INTEGER DEFAULT 0, crime_type TEXT, location TEXT, description TEXT);
               </code>
             </div>
           </div>
@@ -403,16 +403,16 @@ export const Cases = () => {
             value={viewMode}
             onChange={(e) => setViewMode(e.target.value as 'list' | 'grid')}
             className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+            >
             <option value="list">List</option>
             <option value="grid">Grid</option>
           </select>
         </div>
       </div>
 
-      {/* Cases List - Fixed grid layout to prevent overlapping */}
+      {/* Cases List */}
       <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-        {/* Table Header - Responsive grid */}
+        {/* Table Header */}
         <div className="hidden md:grid md:grid-cols-12 gap-4 p-4 border-b border-gray-200 text-sm font-semibold text-gray-600 bg-gray-50">
           <div className="md:col-span-2">Case ID</div>
           <div className="md:col-span-3">Title</div>
@@ -445,7 +445,7 @@ export const Cases = () => {
                 <span className="font-mono text-sm text-blue-600 font-medium">{caseItem.case_id}</span>
               </div>
               
-              {/* Title and details - stacked on mobile */}
+              {/* Title and details */}
               <div className="md:col-span-3">
                 <p className="font-medium text-gray-800">{caseItem.title}</p>
                 <p className="text-xs text-gray-500 mt-1">{caseItem.crime_type} • {caseItem.location}</p>
@@ -470,7 +470,7 @@ export const Cases = () => {
                 <p className="text-sm text-gray-800">{caseItem.assigned_officer}</p>
               </div>
               
-              {/* Last Updated - formatted for mobile */}
+              {/* Last Updated */}
               <div className="md:col-span-2">
                 <p className="text-sm text-gray-600">
                   {new Date(caseItem.last_updated).toLocaleDateString()}

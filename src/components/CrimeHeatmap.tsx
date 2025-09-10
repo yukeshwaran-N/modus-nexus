@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Database, RefreshCw, Map, Filter, AlertCircle, WifiOff, Server } from "lucide-react";
 import { PageLayout } from "./PageLayout";
-import { supabase } from "@/lib/supabase";
+import { secureSupabase } from "@/lib/secureSupabase"; // Use secureSupabase instead of supabase
 import { LeafletMap } from "./LeafletMap";
 
 // Coordinates mapping for Tamil Nadu districts
@@ -30,11 +30,10 @@ export function CrimeHeatmap() {
   // Test database connection
   const testDbConnection = async () => {
     try {
-      setDbStatus('Testing Supabase connection...');
-      const { data, error } = await supabase
-        .from('criminal_records')
-        .select('count')
-        .limit(1);
+      setDbStatus('Testing Secure Supabase connection...');
+      const { data, error } = await secureSupabase.select('criminal_records', {
+        limit: 1
+      });
       
       if (error) {
         setDbStatus(`Database error: ${error.message}`);
@@ -53,7 +52,7 @@ export function CrimeHeatmap() {
     }
   };
 
-  // Fetch crime data from database
+  // Fetch crime data from database using secureSupabase
   const fetchCrimeData = async () => {
     try {
       setLoading(true);
@@ -66,9 +65,7 @@ export function CrimeHeatmap() {
       }
       
       setDbStatus('Fetching crime records...');
-      const { data, error: supabaseError } = await supabase
-        .from('criminal_records')
-        .select('*');
+      const { data, error: supabaseError } = await secureSupabase.select('criminal_records');
       
       if (supabaseError) {
         setDbStatus(`Query error: ${supabaseError.message}`);
@@ -76,9 +73,11 @@ export function CrimeHeatmap() {
       }
       
       if (data) {
+        console.log('Fetched crime data:', data);
+        
         // Add coordinates based on location
         const processedData = data.map(record => {
-          const location = record.location || '';
+          const location = record.last_location || record.location || '';
           const district = Object.keys(districtCoordinates).find(d => 
             location.toLowerCase().includes(d.toLowerCase())
           );
@@ -118,19 +117,19 @@ export function CrimeHeatmap() {
   const hotspots = useMemo(() => [
     { 
       location: "Chennai", 
-      crimes: crimeData.filter((c: any) => c.location && c.location.includes("Chennai")).length, 
-      trend: crimeData.filter((c: any) => c.location && c.location.includes("Chennai")).length > 5 ? "↑ Increasing" : "→ Stable", 
-      level: crimeData.filter((c: any) => c.location && c.location.includes("Chennai")).length > 5 ? "high" : "medium" 
+      crimes: crimeData.filter((c: any) => c.last_location && c.last_location.includes("Chennai")).length, 
+      trend: crimeData.filter((c: any) => c.last_location && c.last_location.includes("Chennai")).length > 5 ? "↑ Increasing" : "→ Stable", 
+      level: crimeData.filter((c: any) => c.last_location && c.last_location.includes("Chennai")).length > 5 ? "high" : "medium" 
     },
     { 
       location: "Coimbatore", 
-      crimes: crimeData.filter((c: any) => c.location && c.location.includes("Coimbatore")).length, 
+      crimes: crimeData.filter((c: any) => c.last_location && c.last_location.includes("Coimbatore")).length, 
       trend: "→ Stable", 
       level: "medium" 
     },
     { 
       location: "Madurai", 
-      crimes: crimeData.filter((c: any) => c.location && c.location.includes("Madurai")).length, 
+      crimes: crimeData.filter((c: any) => c.last_location && c.last_location.includes("Madurai")).length, 
       trend: "↓ Decreasing", 
       level: "low" 
     },
@@ -199,16 +198,16 @@ export function CrimeHeatmap() {
           
           {/* Database Connection Status Card */}
           <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-  <div className="flex items-center">
-    <Server className="h-6 w-6 text-purple-600 mr-3" />
-    <div>
-      <p className="text-xl font-bold text-gray-800">
-        {dbConnected ? 'CONNECTED' : 'DISCONNECTED'}
-      </p>
-      <p className="text-sm text-gray-600">Database Status</p>
-    </div>
-  </div>
-</div>
+            <div className="flex items-center">
+              <Server className="h-6 w-6 text-purple-600 mr-3" />
+              <div>
+                <p className="text-xl font-bold text-gray-800">
+                  {dbConnected ? 'CONNECTED' : 'DISCONNECTED'}
+                </p>
+                <p className="text-sm text-gray-600">Database Status</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -274,6 +273,32 @@ export function CrimeHeatmap() {
         />
       </div>
 
+      {/* Recent Crimes List */}
+      {crimeData.length > 0 && (
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
+          <h3 className="text-xl font-semibold text-gray-800 mb-4">Recent Criminal Activities</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {crimeData.slice(0, 6).map((crime, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <h4 className="font-semibold text-gray-800">{crime.name || 'Unknown Criminal'}</h4>
+                <p className="text-sm text-gray-600">Case: {crime.case_id || 'N/A'}</p>
+                <p className="text-sm text-gray-600">Crime: {crime.crime_type || 'Unknown'}</p>
+                <p className="text-sm text-gray-600">Location: {crime.last_location || 'Unknown'}</p>
+                <div className="mt-2">
+                  <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                    crime.risk_level === 'High' ? 'bg-red-100 text-red-800' :
+                    crime.risk_level === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-green-100 text-green-800'
+                  }`}>
+                    Risk: {crime.risk_level || 'Unknown'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Hotspots Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {hotspots.map((hotspot, index) => (
@@ -310,28 +335,27 @@ export function CrimeHeatmap() {
       </div>
 
       {/* Quick Actions */}
-      {/* Quick Actions */}
-<div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-  <h3 className="font-semibold text-blue-800 mb-4 text-lg">Quick Actions</h3>
-  <div className="flex flex-wrap gap-4">
-    <button className="bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 px-6 py-3 rounded-xl hover:from-blue-200 hover:to-blue-300 transition-colors shadow-sm flex items-center gap-2 border border-blue-300">
-      <span>📊</span>
-      Generate Report
-    </button>
-    <button className="bg-gradient-to-r from-green-100 to-green-200 text-green-800 px-6 py-3 rounded-xl hover:from-green-200 hover:to-green-300 transition-colors shadow-sm flex items-center gap-2 border border-green-300">
-      <span>📥</span>
-      Export Data
-    </button>
-    <button className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 px-6 py-3 rounded-xl hover:from-purple-200 hover:to-purple-300 transition-colors shadow-sm flex items-center gap-2 border border-purple-300">
-      <span>🖨️</span>
-      Print Map
-    </button>
-    <button className="bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 px-6 py-3 rounded-xl hover:from-orange-200 hover:to-orange-300 transition-colors shadow-sm flex items-center gap-2 border border-orange-300">
-      <span>🚨</span>
-      Alert Team
-    </button>
-  </div>
-</div>
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+        <h3 className="font-semibold text-blue-800 mb-4 text-lg">Quick Actions</h3>
+        <div className="flex flex-wrap gap-4">
+          <button className="bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 px-6 py-3 rounded-xl hover:from-blue-200 hover:to-blue-300 transition-colors shadow-sm flex items-center gap-2 border border-blue-300">
+            <span>📊</span>
+            Generate Report
+          </button>
+          <button className="bg-gradient-to-r from-green-100 to-green-200 text-green-800 px-6 py-3 rounded-xl hover:from-green-200 hover:to-green-300 transition-colors shadow-sm flex items-center gap-2 border border-green-300">
+            <span>📥</span>
+            Export Data
+          </button>
+          <button className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 px-6 py-3 rounded-xl hover:from-purple-200 hover:to-purple-300 transition-colors shadow-sm flex items-center gap-2 border border-purple-300">
+            <span>🖨️</span>
+            Print Map
+          </button>
+          <button className="bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 px-6 py-3 rounded-xl hover:from-orange-200 hover:to-orange-300 transition-colors shadow-sm flex items-center gap-2 border border-orange-300">
+            <span>🚨</span>
+            Alert Team
+          </button>
+        </div>
+      </div>
     </PageLayout>
   );
 }

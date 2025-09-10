@@ -1,10 +1,10 @@
 // src/components/CriminalDataEntry.tsx
-import { useState, useRef } from 'react';
-import { Upload, FileText, UserPlus, X, Download, FileUp, AlertCircle, Square } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Upload, FileText, UserPlus, X, Download, FileUp, AlertCircle, Square, Shield, ShieldOff } from 'lucide-react';
 import { secureSupabase } from '@/lib/secureSupabase';
 import * as XLSX from 'xlsx';
 
-// Criminal record type - based on your database structure
+// Criminal record type
 interface CriminalData {
   case_id: string;
   name: string;
@@ -40,6 +40,51 @@ interface CriminalData {
   date_added?: string;
 }
 
+// Helper functions for CSV parsing
+const detectDelimiter = (line: string): string => {
+  const delimiters = [',', ';', '\t', '|'];
+  const counts = delimiters.map(delim => ({
+    delim,
+    count: line.split(delim).length
+  }));
+  
+  return counts.reduce((prev, current) => 
+    current.count > prev.count ? current : prev
+  ).delim;
+};
+
+const cleanCSVValue = (value: string): string => {
+  if (!value) return '';
+  return value
+    .trim()
+    .replace(/^['"]|['"]$/g, '') // Remove surrounding quotes
+    .replace(/\uFEFF/g, '') // Remove BOM character
+    .replace(/\r/g, '') // Remove carriage returns
+    .trim();
+};
+
+const parseCSVLine = (line: string, delimiter: string): string[] => {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === delimiter && !inQuotes) {
+      result.push(cleanCSVValue(current));
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  result.push(cleanCSVValue(current));
+  return result;
+};
+
 export function CriminalDataEntry() {
   const [activeTab, setActiveTab] = useState<'manual' | 'excel'>('manual');
   const [formData, setFormData] = useState<Partial<CriminalData>>({});
@@ -51,9 +96,29 @@ export function CriminalDataEntry() {
   const [importStatus, setImportStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [importResult, setImportResult] = useState<{ success: number; errors: number }>({ success: 0, errors: 0 });
   const [isImportCancelled, setIsImportCancelled] = useState(false);
+  const [encryptionStatus, setEncryptionStatus] = useState({
+    enabled: false,
+    keyLength: 0,
+    details: ''
+  });
+  const [importError, setImportError] = useState<string>(''); // Added missing importError state
   const criminalPhotoInputRef = useRef<HTMLInputElement>(null);
   const evidenceInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const checkEncryptionStatus = () => {
+      const status = secureSupabase.getEncryptionStatus();
+      setEncryptionStatus({
+        enabled: status.enabled,
+        keyLength: status.keyLength,
+        details: status.enabled ? 
+          `Encryption is active with a ${status.keyLength}-character key` :
+          'Encryption is not properly configured. Set VITE_ENCRYPTION_KEY in your environment variables.'
+      });
+    };
+    checkEncryptionStatus();
+  }, []);
 
   const handleInputChange = (field: keyof CriminalData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -79,15 +144,11 @@ export function CriminalDataEntry() {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${folder}/${fileName}`;
 
-      // Use secureSupabase for storage operations
       const { error } = await secureSupabase.raw.storage
         .from('criminal-records')
         .upload(filePath, file);
 
-      if (error) {
-        console.error('Storage upload error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       const { data } = secureSupabase.raw.storage
         .from('criminal-records')
@@ -109,17 +170,15 @@ export function CriminalDataEntry() {
       let criminalPhotoUrl = '';
       let evidenceUrls: string[] = [];
 
-      // Upload files if they exist
       if (criminalPhoto) {
         try {
           criminalPhotoUrl = await uploadFileToStorage(criminalPhoto, 'criminal-photos');
           setUploadProgress(33);
         } catch (error) {
-          console.warn('Failed to upload criminal photo, continuing without it:', error);
+          console.warn('Failed to upload criminal photo:', error);
         }
       }
 
-      // Upload evidence files
       if (evidenceFiles.length > 0) {
         for (let i = 0; i < evidenceFiles.length; i++) {
           try {
@@ -127,12 +186,11 @@ export function CriminalDataEntry() {
             evidenceUrls.push(url);
             setUploadProgress(33 + Math.round((i + 1) / evidenceFiles.length * 33));
           } catch (error) {
-            console.warn('Failed to upload evidence file, continuing without it:', error);
+            console.warn('Failed to upload evidence file:', error);
           }
         }
       }
 
-      // Prepare data for insertion - only include fields that exist in your table
       const insertData: Partial<CriminalData> = {
         case_id: formData.case_id,
         name: formData.name,
@@ -168,189 +226,245 @@ export function CriminalDataEntry() {
         date_added: new Date().toISOString()
       };
 
-      console.log('Attempting to insert into criminal_records:', insertData);
-
-      // Insert into database using secureSupabase
       const { error, data } = await secureSupabase.insert('criminal_records', insertData);
 
       if (error) {
         console.error('Database insert error:', error);
-        
-        // If RLS error, guide user to fix policies
         if (error.code === '42501') {
           throw new Error(
-            'RLS Policy Error: Please go to Supabase Dashboard → Authentication → Policies ' +
-            'and create an INSERT policy for the criminal_records table, or temporarily disable RLS.'
+            'RLS Policy Error: Please check Supabase RLS policies for criminal_records table'
           );
         }
         throw error;
       }
 
-      console.log('Insert successful:', data);
       setUploadProgress(100);
       alert('Criminal record added successfully!');
       resetForm();
 
     } catch (error: any) {
-      console.error('Full error details:', error);
-      alert('Error adding record: ' + (error.message || 'Unknown error. Check console for details.'));
+      console.error('Error adding record:', error);
+      alert('Error adding record: ' + (error.message || 'Unknown error'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Replace the handleExcelImport function with this updated version
+
   const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
+  
     setImportStatus('processing');
     setImportProgress(0);
     setImportResult({ success: 0, errors: 0 });
+    setImportError('');
     setIsImportCancelled(false);
-
+  
     try {
-      console.log('Starting file import for file:', file.name, file.type);
-      
+      console.log('=== CSV IMPORT DEBUG START ===');
+      console.log('File name:', file.name);
+      console.log('File type:', file.type);
+      console.log('File size:', file.size, 'bytes');
+  
       let data: any[] = [];
       
-      // Handle CSV files
       if (file.name.endsWith('.csv') || file.type === 'text/csv') {
         console.log('Processing CSV file');
-        const text = await file.text();
-        const lines = text.split('\n');
         
+        const text = await file.text();
+        console.log('Raw file content (first 500 chars):', text.substring(0, 500));
+        
+        const cleanedText = text.replace(/\uFEFF/g, '').replace(/\r/g, '');
+        const lines = cleanedText.split('\n').filter(line => line.trim() !== '');
+        
+        console.log('Number of lines after cleaning:', lines.length);
+  
         if (lines.length <= 1) {
-          throw new Error('CSV file is empty or no data found');
+          throw new Error('CSV file is empty or has no data rows.');
         }
         
-        // Extract headers from first line
-        const headers = lines[0].split(',').map(header => header.trim());
-        console.log('CSV headers:', headers);
+        const firstLine = lines[0];
+        const delimiter = detectDelimiter(firstLine);
+        console.log('Detected delimiter:', delimiter);
         
-        // Process each line
+        const headers = parseCSVLine(firstLine, delimiter).map(header => 
+          header.toLowerCase().replace(/\s+/g, '_')
+        );
+        
+        console.log('Cleaned headers:', headers);
+  
+        if (headers.length === 0) {
+          throw new Error('No headers found in CSV file');
+        }
+  
+        // Process data rows
         for (let i = 1; i < lines.length; i++) {
-          if (!lines[i].trim()) continue; // Skip empty lines
+          if (isImportCancelled) break;
+          if (!lines[i].trim()) continue;
+  
+          const values = parseCSVLine(lines[i], delimiter);
           
-          const values = lines[i].split(',').map(value => value.trim());
           const rowData: Record<string, any> = {};
           
           headers.forEach((header, index) => {
-            rowData[header] = values[index] || '';
+            if (index < values.length) {
+              rowData[header] = values[index] || '';
+            } else {
+              rowData[header] = '';
+            }
           });
           
           data.push(rowData);
         }
-      } 
-      // Handle Excel files
-      else {
-        console.log('Processing Excel file');
+      } else {
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         
-        // Get the first worksheet
         const worksheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[worksheetName];
         
-        // Convert to JSON
         data = XLSX.utils.sheet_to_json(worksheet);
       }
-      
-      console.log('File data parsed:', data);
-
+  
+      console.log('Number of records parsed:', data.length);
+  
       if (data.length === 0) {
-        throw new Error('File is empty or no data found');
+        throw new Error('No valid data found in the file.');
       }
-
+  
       let successCount = 0;
       let errorCount = 0;
-
+      const errorMessages: string[] = [];
+  
+      // DEBUG: Let's check what columns we're working with
+      if (data.length > 0) {
+        console.log('First row keys:', Object.keys(data[0]));
+        console.log('First row values:', data[0]);
+      }
+  
       // Process each row
       for (let i = 0; i < data.length; i++) {
-        // Check if import was cancelled
         if (isImportCancelled) {
-          console.log('Import cancelled by user');
           setImportStatus('idle');
           break;
         }
-
+  
         try {
           const row: any = data[i];
           if (!row || Object.keys(row).length === 0) continue;
           
-          console.log(`Processing row ${i + 1}:`, row);
-          
-          // Map columns to database fields with better error handling
+          // REQUIRED: Check if we have at least a name
+          if (!row.name && !row.full_name && !row.fullname) {
+            throw new Error('Missing required field: name. Available fields: ' + Object.keys(row).join(', '));
+          }
+  
+          // Function to safely trim values for database constraints
+          const safeValue = (value: any, maxLength: number = 255) => {
+            if (value === null || value === undefined) return '';
+            const strValue = String(value);
+            
+            // DEBUG: Log if we're trimming any values
+            if (strValue.length > maxLength) {
+              console.warn(`Trimming value for field: ${strValue.substring(0, 50)}... from ${strValue.length} to ${maxLength} chars`);
+            }
+            
+            return strValue.length > maxLength ? strValue.substring(0, maxLength) : strValue;
+          };
+  
+          // DEBUG: Let's check the case_id specifically since it's likely the culprit
+          const rawCaseId = row.case_id || row.caseid || row.case || `IMP-${Date.now()}-${i}`;
+          console.log(`Row ${i+1} case_id:`, rawCaseId, 'Length:', rawCaseId.length);
+  
           const insertData: Partial<CriminalData> = {
-            case_id: row.case_id || row['Case ID'] || `TN-AUTO-${Date.now()}-${i}`,
-            name: row.name || row.Name || '',
-            age: parseInt(row.age || row.Age || '0'),
-            gender: row.gender || row.Gender || '',
-            phone_number: row.phone_number || row.phone || row.Phone || '',
-            email: row.email || row.Email || '',
-            nationality: row.nationality || row.Nationality || 'Indian',
-            crime_type: row.crime_type || row.crime || row.Crime || '',
-            modus_operandi: row.modus_operandi || row.modus || row.Modus || '',
-            tools_used: row.tools_used || row.tools || row.Tools || '',
-            associates: row.associates || row.Associates || '',
-            connected_criminals: row.connected_criminals || row.connected || row.Connected || '',
-            case_status: row.case_status || row.status || row.Status || 'Under Investigation',
-            current_status: row.current_status || row.current || row.Current || 'In Custody',
-            last_location: row.last_location || row.location || row.Location || '',
-            arrest_date: row.arrest_date || row.arrest || row.Arrest || '',
-            bail_date: row.bail_date || row.bail || row.Bail || '',
-            bio: row.bio || row.Bio || '',
-            total_cases: parseInt(row.total_cases || row.total || row.Total || '0'),
-            legal_status: row.legal_status || row.legal || row.Legal || 'Under Investigation',
-            known_associates: row.known_associates || row.known || row.Known || '',
-            case_progress_timeline: row.case_progress_timeline || row.timeline || row.Timeline || '',
-            address: row.address || row.Address || '',
-            address_line: row.address_line || row.addressLine || row.AddressLine || '',
-            city: row.city || row.City || '',
-            state: row.state || row.State || 'Tamil Nadu',
-            country: row.country || row.Country || 'India',
-            risk_level: row.risk_level || row.risk || row.Risk || 'Medium',
-            threat_level: row.threat_level || row.threat || row.Threat || 'Medium',
+            case_id: safeValue(rawCaseId, 15),
+            name: safeValue(row.name || row.full_name || row.fullname || 'Unknown Criminal', 100),
+            age: parseInt(row.age || row.criminal_age || '0') || 0,
+            gender: safeValue((row.gender || row.sex || 'Male').toString().charAt(0).toUpperCase(), 1),
+            phone_number: safeValue(row.phone_number || row.phone || row.mobile || row.contact || '', 15),
+            email: safeValue(row.email || row.email_address || '', 100),
+            nationality: safeValue(row.nationality || row.country || 'Indian', 50),
+            crime_type: safeValue(row.crime_type || row.crime || 'Unknown Crime', 50),
+            modus_operandi: safeValue(row.modus_operandi || row.modus || row.method || '', 500),
+            tools_used: safeValue(row.tools_used || row.tools || row.weapons || '', 200),
+            associates: safeValue(row.associates || row.partners || '', 200),
+            connected_criminals: safeValue(row.connected_criminals || row.connections || '', 200),
+            case_status: safeValue(row.case_status || row.status || 'Under Investigation', 50),
+            current_status: safeValue(row.current_status || 'In Custody', 50),
+            last_location: safeValue(row.last_location || row.location || '', 100),
+            arrest_date: safeValue(row.arrest_date || row.arrest || '', 20),
+            bail_date: safeValue(row.bail_date || row.bail || '', 20),
+            bio: safeValue(row.bio || row.description || '', 1000),
+            total_cases: parseInt(row.total_cases || row.cases || '0') || 0,
+            legal_status: safeValue(row.legal_status || 'Under Investigation', 50),
+            known_associates: safeValue(row.known_associates || row.associates || '', 200),
+            case_progress_timeline: safeValue(row.case_progress_timeline || row.timeline || '', 500),
+            address: safeValue(row.address || '', 200),
+            address_line: safeValue(row.address_line || '', 200),
+            city: safeValue(row.city || '', 50),
+            state: safeValue(row.state || 'Tamil Nadu', 50),
+            country: safeValue(row.country || 'India', 50),
+            risk_level: safeValue(row.risk_level || 'Medium', 20),
+            threat_level: safeValue(row.threat_level || 'Medium', 20),
             date_added: new Date().toISOString()
           };
-
-          console.log('Insert data prepared:', insertData);
-
-          // Insert into database using secureSupabase
+  
+          // DEBUG: Check the final case_id length
+          console.log(`Row ${i+1} final case_id:`, insertData.case_id, 'Length:', insertData.case_id?.length);
+  
           const { error } = await secureSupabase.insert('criminal_records', insertData);
-
+  
           if (error) {
             console.error(`Database error for row ${i + 1}:`, error);
+            
+            // Enhanced error parsing to identify the exact column
+            if (error.message.includes('too long for type character varying')) {
+              const match = error.message.match(/column "([^"]+)"/);
+              const columnName = match ? match[1] : 'unknown';
+              const lengthMatch = error.message.match(/character varying\((\d+)\)/);
+              const maxLength = lengthMatch ? lengthMatch[1] : 'unknown';
+              
+              errorMessages.push(`Row ${i + 1}: Value too long for ${columnName} (max ${maxLength} chars)`);
+              console.error(`Column causing error: ${columnName}, Max length: ${maxLength}`);
+            } else {
+              errorMessages.push(`Row ${i + 1}: ${error.message}`);
+            }
+            
             errorCount++;
           } else {
             successCount++;
-            console.log(`Row ${i + 1} inserted successfully`);
           }
-
-        } catch (rowError) {
+  
+        } catch (rowError: any) {
           console.error(`Error processing row ${i + 1}:`, rowError);
+          errorMessages.push(`Row ${i + 1}: ${rowError.message}`);
           errorCount++;
         }
-
-        // Update progress
+  
         setImportProgress(Math.round(((i + 1) / data.length) * 100));
         setImportResult({ success: successCount, errors: errorCount });
       }
-
-      
+  
+      console.log('=== CSV IMPORT DEBUG END ===');
+  
       if (!isImportCancelled) {
-        setImportStatus(successCount > 0 ? 'success' : 'error');
-        
         if (successCount > 0) {
-          alert(`Import completed! Success: ${successCount}`);
+          setImportStatus('success');
+          alert(`Import completed! Success: ${successCount}, Errors: ${errorCount}`);
         } else {
-          alert('Import failed. Please check the file format and try again.');
+          setImportStatus('error');
+          const errorSummary = errorMessages.slice(0, 5).join('\n');
+          setImportError(errorSummary);
+          alert(`Import failed. All rows had errors.\n\nFirst few errors:\n${errorSummary}`);
         }
       }
-
+  
     } catch (error: any) {
       console.error('File import error:', error);
       setImportStatus('error');
-      alert('Error importing file: ' + (error.message || 'Please check the file format'));
+      setImportError(error.message);
+      alert('Error importing file: ' + error.message);
     } finally {
       if (excelInputRef.current) {
         excelInputRef.current.value = '';
@@ -377,32 +491,50 @@ export function CriminalDataEntry() {
        'crime_type', 'modus_operandi', 'tools_used', 'associates', 'connected_criminals',
        'case_status', 'current_status', 'last_location', 'arrest_date', 'bail_date',
        'bio', 'total_cases', 'legal_status', 'known_associates', 'case_progress_timeline',
-       'address', 'address_line', 'city', 'state', 'country', 'risk_level', 'threat_level']
+       'address', 'address_line', 'city', 'state', 'country', 'risk_level', 'threat_level'],
+      ['TN-2024-001', 'John Doe', '35', 'Male', '+919876543210', 'john@example.com', 'Indian', 
+       'Robbery', 'Night time breaking', 'Crowbar, Gloves', 'Jane Smith, Mike Johnson', 'Raj Kumar',
+       'Under Investigation', 'In Custody', 'Chennai', '2024-01-15', '2024-02-01',
+       'Known criminal with multiple offenses', '3', 'Under Trial', 'Sanjay, Ramesh', 'Arrested on Jan 15, 2024',
+       '123 Main Street', 'Anna Nagar', 'Chennai', 'Tamil Nadu', 'India', 'High', 'Medium']
     ];
 
-    const csvContent = templateData.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const csvContent = templateData.map(row => 
+      row.map(field => `"${field}"`).join(',')
+    ).join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = 'criminal_data_template.csv';
     link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Criminal Data Entry System
-          </h1>
-          <p className="text-gray-600">
-            Add new criminal records manually or import from Excel/CSV
-          </p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Criminal Data Entry System</h1>
+          <p className="text-gray-600">Add new criminal records manually or import from Excel/CSV</p>
+          
+          <div className={`mt-4 inline-flex items-center px-4 py-2 rounded-lg text-sm ${
+            encryptionStatus.enabled ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
+            {encryptionStatus.enabled ? <Shield className="h-4 w-4 mr-2" /> : <ShieldOff className="h-4 w-4 mr-2" />}
+            <span>Encryption: {encryptionStatus.enabled ? 'Enabled' : 'Disabled'}</span>
+          </div>
+          
+          {!encryptionStatus.enabled && (
+            <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                ⚠️ Warning: Encryption is not properly configured. Set VITE_ENCRYPTION_KEY in environment variables.
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Tabs */}
         <div className="bg-white rounded-xl shadow-sm mb-6">
           <div className="flex border-b">
             <button
@@ -455,6 +587,7 @@ export function CriminalDataEntry() {
                 importProgress={importProgress}
                 importResult={importResult}
                 isImportCancelled={isImportCancelled}
+                importError={importError}
               />
             )}
           </div>
@@ -481,7 +614,6 @@ function ManualEntryForm({
 }: any) {
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      {/* Progress Bar */}
       {isSubmitting && (
         <div className="bg-gray-100 rounded-lg p-4">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
@@ -498,10 +630,8 @@ function ManualEntryForm({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Basic Information */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-800">Basic Information</h3>
-          
           <InputField label="Case ID" value={formData.case_id} onChange={(v) => onInputChange('case_id', v)} required />
           <InputField label="Full Name" value={formData.name} onChange={(v) => onInputChange('name', v)} required />
           <InputField label="Age" type="number" value={formData.age} onChange={(v) => onInputChange('age', v)} />
@@ -511,10 +641,8 @@ function ManualEntryForm({
           <InputField label="Nationality" value={formData.nationality} onChange={(v) => onInputChange('nationality', v)} />
         </div>
 
-        {/* Crime Details */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-800">Crime Details</h3>
-          
           <InputField label="Crime Type" value={formData.crime_type} onChange={(v) => onInputChange('crime_type', v)} required />
           <TextAreaField label="Modus Operandi" value={formData.modus_operandi} onChange={(v) => onInputChange('modus_operandi', v)} />
           <InputField label="Tools Used" value={formData.tools_used} onChange={(v) => onInputChange('tools_used', v)} />
@@ -523,11 +651,31 @@ function ManualEntryForm({
         </div>
       </div>
 
-      {/* Status Information */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-800">Basic Information</h3>
+          <InputField label="Case ID" value={formData.case_id} onChange={(v) => onInputChange('case_id', v)} required />
+          <InputField label="Full Name" value={formData.name} onChange={(v) => onInputChange('name', v)} required />
+          <InputField label="Age" type="number" value={formData.age} onChange={(v) => onInputChange('age', v)} />
+          <SelectField label="Gender" value={formData.gender} onChange={(v) => onInputChange('gender', v)} options={['Male', 'Female', 'Other']} />
+          <InputField label="Phone Number" value={formData.phone_number} onChange={(v) => onInputChange('phone_number', v)} />
+          <InputField label="Email" type="email" value={formData.email} onChange={(v) => onInputChange('email', v)} />
+          <InputField label="Nationality" value={formData.nationality} onChange={(v) => onInputChange('nationality', v)} />
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-800">Crime Details</h3>
+          <InputField label="Crime Type" value={formData.crime_type} onChange={(v) => onInputChange('crime_type', v)} required />
+          <TextAreaField label="Modus Operandi" value={formData.modus_operandi} onChange={(v) => onInputChange('modus_operandi', v)} />
+          <InputField label="Tools Used" value={formData.tools_used} onChange={(v) => onInputChange('tools_used', v)} />
+          <InputField label="Associates" value={formData.associates} onChange={(v) => onInputChange('associates', v)} />
+          <InputField label="Connected Criminals" value={formData.connected_criminals} onChange={(v) => onInputChange('connected_criminals', v)} />
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-800">Case Status</h3>
-          
           <SelectField label="Case Status" value={formData.case_status} onChange={(v) => onInputChange('case_status', v)} options={['Under Investigation', 'Solved', 'Under Trial', 'Closed']} />
           <SelectField label="Current Status" value={formData.current_status} onChange={(v) => onInputChange('current_status', v)} options={['In Custody', 'Out on Bail', 'In Jail', 'Wanted']} />
           <InputField label="Last Known Location" value={formData.last_location} onChange={(v) => onInputChange('last_location', v)} />
@@ -537,7 +685,6 @@ function ManualEntryForm({
 
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-800">Additional Information</h3>
-          
           <InputField label="Total Cases" type="number" value={formData.total_cases} onChange={(v) => onInputChange('total_cases', v)} />
           <InputField label="Legal Status" value={formData.legal_status} onChange={(v) => onInputChange('legal_status', v)} />
           <InputField label="Known Associates" value={formData.known_associates} onChange={(v) => onInputChange('known_associates', v)} />
@@ -546,7 +693,6 @@ function ManualEntryForm({
         </div>
       </div>
 
-      {/* Address Information */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-800">Address Details</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -557,16 +703,13 @@ function ManualEntryForm({
         </div>
       </div>
 
-      {/* Text Areas */}
       <div className="grid grid-cols-1 gap-4">
         <TextAreaField label="Biography" value={formData.bio} onChange={(v) => onInputChange('bio', v)} rows={3} />
         <TextAreaField label="Case Progress Timeline" value={formData.case_progress_timeline} onChange={(v) => onInputChange('case_progress_timeline', v)} rows={3} />
         <TextAreaField label="Full Address" value={formData.address} onChange={(v) => onInputChange('address', v)} rows={2} />
       </div>
 
-      {/* File Uploads */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Criminal Photo Upload */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-800">Criminal Photo</h3>
           <FileUpload
@@ -578,7 +721,6 @@ function ManualEntryForm({
           />
         </div>
 
-        {/* Evidence Files Upload */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-800">Evidence Files</h3>
           <FileUpload
@@ -593,7 +735,6 @@ function ManualEntryForm({
         </div>
       </div>
 
-      {/* Submit Button */}
       <div className="flex justify-end">
         <button
           type="submit"
@@ -648,7 +789,6 @@ function ExcelImport({
         </div>
       </div>
 
-      {/* Import Progress */}
       {importStatus === 'processing' && (
         <div className="bg-gray-100 rounded-lg p-4">
           <div className="flex justify-between text-sm text-gray-600 mb-2">
@@ -662,7 +802,6 @@ function ExcelImport({
             />
           </div>
           
-          {/* Cancel Button */}
           <div className="mt-4">
             <button
               onClick={onCancelImport}
@@ -675,7 +814,6 @@ function ExcelImport({
         </div>
       )}
 
-      {/* Import Results */}
       {importStatus === 'success' && (
         <div className="flex items-center justify-center">
           <div className="bg-green-50 border border-green-200 rounded-lg p-6 max-w-md w-full">
@@ -683,12 +821,11 @@ function ExcelImport({
               <svg className="h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <h3 className="text-lg font-medium text-green-800 mb-2">
-                Import Successful
-              </h3>
-              <p className="text-green-700">
-                Successfully imported {importResult.success} records
-              </p>
+              <h3 className="text-lg font-medium text-green-800 mb-2">Import Successful</h3>
+              <p className="text-green-700">Successfully imported {importResult.success} records</p>
+              {importResult.errors > 0 && (
+                <p className="text-yellow-700 text-sm mt-2">({importResult.errors} errors occurred)</p>
+              )}
             </div>
           </div>
         </div>
@@ -697,14 +834,11 @@ function ExcelImport({
       {importStatus === 'error' && (
         <div className="flex items-center justify-center">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md w-full">
-            <div className="flex flexocol items-center text-center">
+            <div className="flex flex-col items-center text-center">
               <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-              <h3 className="text-lg font-medium text-red-800 mb-2">
-                Import Failed
-              </h3>
-              <p className="text-red-700">
-                Please check the file format and try again.
-              </p>
+              <h3 className="text-lg font-medium text-red-800 mb-2">Import Failed</h3>
+              <p className="text-red-700 mb-2">Please check the file format and try again.</p>
+              <p className="text-red-600 text-sm">Make sure to use the provided template format.</p>
             </div>
           </div>
         </div>
@@ -715,12 +849,8 @@ function ExcelImport({
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md w-full">
             <div className="flex flex-col items-center text-center">
               <AlertCircle className="h-12 w-12 text-yellow-500 mb-4" />
-              <h3 className="text-lg font-medium text-yellow-800 mb-2">
-                Import Cancelled
-              </h3>
-              <p className="text-yellow-700">
-                Import process was cancelled by user.
-              </p>
+              <h3 className="text-lg font-medium text-yellow-800 mb-2">Import Cancelled</h3>
+              <p className="text-yellow-700">Import process was cancelled by user.</p>
             </div>
           </div>
         </div>
@@ -814,7 +944,6 @@ function FileUpload({ accept, multiple, onChange, file, files, onRemove, label, 
         Choose Files
       </button>
 
-      {/* Show selected files */}
       {file && (
         <div className="mt-4 p-2 bg-blue-50 rounded-lg">
           <div className="flex items-center justify-between">

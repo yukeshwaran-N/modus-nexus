@@ -27,7 +27,7 @@ export interface GroqMessage {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer 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`
+          'Authorization': `Bearer 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`
         },
         body: JSON.stringify({
           model: 'meta-llama/llama-4-scout-17b-16e-instruct',
