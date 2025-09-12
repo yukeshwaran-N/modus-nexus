@@ -528,7 +528,7 @@ export default function Dashboard() {
             {/* Centered Shield Logo */}
             <div className="flex justify-center">
               <img 
-                src="/logo.png" 
+                src="/public/logo.png" 
                 alt="App Logo" 
                 className="h-30 w-40 object-contain mb-4"
               />
