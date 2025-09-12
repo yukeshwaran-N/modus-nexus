@@ -16,7 +16,6 @@ import { Cases } from './components/Cases';
 import { SetupWizard } from '@/components/SetupWizard';
 import { EncryptionTest } from '@/components/EncryptionTest';
 import { AuthProvider, useAuth } from './context/useAuth';
-import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './components/LoginPage';
 import PoliceOfficerAdmin from './components/PoliceOfficerAdmin';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -57,7 +56,6 @@ function RouteSync({ setActiveView }: { setActiveView: (view: string) => void })
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Extract view from pathname and set active view
     const path = location.pathname.substring(1);
     if (path) {
       setActiveView(path);
@@ -73,31 +71,26 @@ function RouteSync({ setActiveView }: { setActiveView: (view: string) => void })
 function AppContent() {
   const [activeView, setActiveView] = useState('dashboard');
   const [chatbotInitialMessage, setChatbotInitialMessage] = useState('');
-  const [showChatbot, setShowChatbot] = useState(false);
   const [criminalDataForAnalysis, setCriminalDataForAnalysis] = useState<CriminalRecord | null>(null);
+  const [forceOpenChatbot, setForceOpenChatbot] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const { user, loading, authChecked } = useAuth();
   const navigate = useNavigate();
 
-  // Set encryption key for browser environment
+  // Set encryption key
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Use Vite environment variable first (most secure)
       if (import.meta.env.VITE_ENCRYPTION_KEY) {
         window.ENCRYPTION_KEY = import.meta.env.VITE_ENCRYPTION_KEY;
         console.log('Encryption key loaded from Vite environment');
         return;
       }
-      
-      // Use global variable (set by Vite config)
       if (typeof globalThis !== 'undefined' && (globalThis as any).ENCRYPTION_KEY) {
         window.ENCRYPTION_KEY = (globalThis as any).ENCRYPTION_KEY;
         console.log('Encryption key loaded from global variable');
         return;
       }
-      
-      // Fallback to meta tag
       const metaKey = document.querySelector('meta[name="encryption-key"]');
       if (metaKey) {
         const key = metaKey.getAttribute('content');
@@ -107,8 +100,6 @@ function AppContent() {
           return;
         }
       }
-      
-      // Final fallback for development
       window.ENCRYPTION_KEY = 'dev-encryption-key-32-chars-long!';
       console.log('Using development fallback encryption key');
     }
@@ -117,7 +108,7 @@ function AppContent() {
   const handleAskAI = (criminalData: CriminalRecord) => {
     setChatbotInitialMessage(`Analyze criminal: ${criminalData.name}`);
     setCriminalDataForAnalysis(criminalData);
-    setShowChatbot(true);
+    setForceOpenChatbot(true);
   };
 
   const handleViewChange = (view: string) => {
@@ -129,24 +120,20 @@ function AppContent() {
     }
   };
 
-  // Calculate main content margin based on sidebar state
   const mainContentMargin = isMobile 
     ? "ml-0" 
     : isSidebarCollapsed 
       ? "ml-20" 
       : "ml-64";
 
-  // Show loading state while checking authentication
   if (loading || !authChecked) {
     return <LoadingSpinner />;
   }
 
-  // Show login page if not authenticated
   if (!user) {
     return <LoginPage />;
   }
 
-  // Show main app if authenticated
   return (
     <SidebarProvider>
       <RouteSync setActiveView={setActiveView} />
@@ -161,15 +148,12 @@ function AppContent() {
           setIsMobile={setIsMobile}
         />
         
-        {/* Main content with dynamic margin */}
+        {/* Main content area with routes */}
         <div className={`flex-1 overflow-auto transition-all duration-300 ${mainContentMargin}`}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route 
-              path="/criminals" 
-              element={<CriminalsTable onAskAI={handleAskAI} />} 
-            />
+            <Route path="/criminals" element={<CriminalsTable onAskAI={handleAskAI} />} />
             <Route path="/maps" element={<CrimeHeatmap />} />
             <Route path="/insights" element={<CrimeInsightsPanel />} />
             <Route path="/network" element={<CriminalNetworkGraph />} />
@@ -184,18 +168,18 @@ function AppContent() {
             <Route path="/admin/officers" element={<PoliceOfficerAdmin />} />
           </Routes>
         </div>
-        
-        {showChatbot && (
-          <Chatbot 
-            initialMessage={chatbotInitialMessage}
-            criminalData={criminalDataForAnalysis}
-            onClose={() => {
-              setShowChatbot(false);
-              setCriminalDataForAnalysis(null);
-            }}
-          />
-        )}
       </div>
+
+      {/* ✅ Chatbot stays mounted across all pages */}
+      <Chatbot 
+        initialMessage={chatbotInitialMessage}
+        criminalData={criminalDataForAnalysis}
+        forceOpen={forceOpenChatbot}
+        onClose={() => {
+          setForceOpenChatbot(false);
+          setCriminalDataForAnalysis(null);
+        }}
+      />
     </SidebarProvider>
   );
 }

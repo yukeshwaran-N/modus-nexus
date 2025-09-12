@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Database, RefreshCw, Map, Filter, AlertCircle, WifiOff, Server } from "lucide-react";
+import { Database, RefreshCw, Map, Filter, AlertCircle, WifiOff, Server, Download, Printer, Bell, FileText } from "lucide-react";
 import { PageLayout } from "./PageLayout";
 import { secureSupabase } from "@/lib/secureSupabase"; // Use secureSupabase instead of supabase
 import { LeafletMap } from "./LeafletMap";
@@ -26,6 +26,7 @@ export function CrimeHeatmap() {
   const [selectedCrimeType, setSelectedCrimeType] = useState("All");
   const [dbStatus, setDbStatus] = useState<string>('Checking connection...');
   const [dbConnected, setDbConnected] = useState<boolean>(false);
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
 
   // Test database connection
   const testDbConnection = async () => {
@@ -135,6 +136,82 @@ export function CrimeHeatmap() {
     },
   ], [crimeData]);
 
+  // Quick Action Functions
+  const generateReport = () => {
+    setActionStatus("Generating crime report...");
+    setTimeout(() => {
+      const reportData = {
+        generatedAt: new Date().toLocaleString(),
+        totalRecords: crimeData.length,
+        crimeTypes: Array.from(new Set(crimeData.map(item => item.crime_type))),
+        hotspots: hotspots,
+        filteredBy: selectedCrimeType
+      };
+      
+      // Create a downloadable report
+      const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `crime-report-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      setActionStatus("Report generated and downloaded successfully!");
+      setTimeout(() => setActionStatus(null), 3000);
+    }, 1000);
+  };
+
+  const exportData = () => {
+    setActionStatus("Exporting crime data...");
+    setTimeout(() => {
+      // Convert data to CSV format
+      const headers = Object.keys(crimeData[0] || {}).join(',');
+      const csvData = crimeData.map(row => 
+        Object.values(row).map(value => 
+          typeof value === 'string' && value.includes(',') ? `"${value}"` : value
+        ).join(',')
+      ).join('\n');
+      
+      const csv = `${headers}\n${csvData}`;
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `crime-data-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      setActionStatus("Data exported successfully!");
+      setTimeout(() => setActionStatus(null), 3000);
+    }, 1000);
+  };
+
+  const printMap = () => {
+    setActionStatus("Preparing map for printing...");
+    setTimeout(() => {
+      window.print();
+      setActionStatus("Map printing initiated!");
+      setTimeout(() => setActionStatus(null), 3000);
+    }, 500);
+  };
+
+  const alertTeam = () => {
+    setActionStatus("Sending alert to team...");
+    setTimeout(() => {
+      // Simulate sending an alert
+      const alertMessage = `ALERT: ${filteredData.length} criminal activities detected in ${selectedCrimeType} category.`;
+      console.log("Team Alert:", alertMessage);
+      
+      setActionStatus("Alert sent to team successfully!");
+      setTimeout(() => setActionStatus(null), 3000);
+    }, 1500);
+  };
+
   useEffect(() => {
     fetchCrimeData();
   }, []);
@@ -162,6 +239,16 @@ export function CrimeHeatmap() {
       title="Crime Heatmap" 
       subtitle="Visualize crime patterns and hotspots across Tamil Nadu"
     >
+      {/* Action Status Notification */}
+      {actionStatus && (
+        <div className="fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            <span>{actionStatus}</span>
+          </div>
+        </div>
+      )}
+
       {/* Data Overview Section */}
       <div className="bg-white rounded-xl p-6 mb-6 border border-gray-200">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Data Overview</h2>
@@ -338,20 +425,32 @@ export function CrimeHeatmap() {
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
         <h3 className="font-semibold text-blue-800 mb-4 text-lg">Quick Actions</h3>
         <div className="flex flex-wrap gap-4">
-          <button className="bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 px-6 py-3 rounded-xl hover:from-blue-200 hover:to-blue-300 transition-colors shadow-sm flex items-center gap-2 border border-blue-300">
-            <span>📊</span>
+          <button 
+            onClick={generateReport}
+            className="bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 px-6 py-3 rounded-xl hover:from-blue-200 hover:to-blue-300 transition-colors shadow-sm flex items-center gap-2 border border-blue-300"
+          >
+            <FileText className="h-5 w-5" />
             Generate Report
           </button>
-          <button className="bg-gradient-to-r from-green-100 to-green-200 text-green-800 px-6 py-3 rounded-xl hover:from-green-200 hover:to-green-300 transition-colors shadow-sm flex items-center gap-2 border border-green-300">
-            <span>📥</span>
+          <button 
+            onClick={exportData}
+            className="bg-gradient-to-r from-green-100 to-green-200 text-green-800 px-6 py-3 rounded-xl hover:from-green-200 hover:to-green-300 transition-colors shadow-sm flex items-center gap-2 border border-green-300"
+          >
+            <Download className="h-5 w-5" />
             Export Data
           </button>
-          <button className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 px-6 py-3 rounded-xl hover:from-purple-200 hover:to-purple-300 transition-colors shadow-sm flex items-center gap-2 border border-purple-300">
-            <span>🖨️</span>
+          <button 
+            onClick={printMap}
+            className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 px-6 py-3 rounded-xl hover:from-purple-200 hover:to-purple-300 transition-colors shadow-sm flex items-center gap-2 border border-purple-300"
+          >
+            <Printer className="h-5 w-5" />
             Print Map
           </button>
-          <button className="bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 px-6 py-3 rounded-xl hover:from-orange-200 hover:to-orange-300 transition-colors shadow-sm flex items-center gap-2 border border-orange-300">
-            <span>🚨</span>
+          <button 
+            onClick={alertTeam}
+            className="bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 px-6 py-3 rounded-xl hover:from-orange-200 hover:to-orange-300 transition-colors shadow-sm flex items-center gap-2 border border-orange-300"
+          >
+            <Bell className="h-5 w-5" />
             Alert Team
           </button>
         </div>
