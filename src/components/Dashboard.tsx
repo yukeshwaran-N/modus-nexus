@@ -27,7 +27,7 @@ interface NewsArticle {
 }
 
 const WEATHER_API_KEY = "416cbf771f8338b1dc6225551922793b";
-const NEWS_API_KEY = "9b7211ac64ce2684ef5e4e05a10abd16";
+const NEWS_API_KEY = "f33b3b6af9ed0689154ca09b67334848";
 
 const WeatherWidget: React.FC = () => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
