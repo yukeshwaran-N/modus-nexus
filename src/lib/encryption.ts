@@ -33,19 +33,16 @@ export const ENCRYPTION_CONFIG: Record<string, string[]> = {
 const getEncryptionKey = (): string => {
   // Try Vite environment variables first
   if (import.meta.env.VITE_ENCRYPTION_KEY) {
-    console.log('Using encryption key from Vite environment');
     return import.meta.env.VITE_ENCRYPTION_KEY;
   }
   
   // Try global variable (set by Vite config)
   if (typeof globalThis !== 'undefined' && (globalThis as any).ENCRYPTION_KEY) {
-    console.log('Using encryption key from globalThis');
     return (globalThis as any).ENCRYPTION_KEY;
   }
   
   // Try window variable
   if (typeof window !== 'undefined' && (window as any).ENCRYPTION_KEY) {
-    console.log('Using encryption key from window');
     return (window as any).ENCRYPTION_KEY;
   }
   
@@ -53,13 +50,11 @@ const getEncryptionKey = (): string => {
   if (typeof document !== 'undefined') {
     const metaKey = document.querySelector('meta[name="encryption-key"]');
     if (metaKey && metaKey.getAttribute('content')) {
-      console.log('Using encryption key from meta tag');
       return metaKey.getAttribute('content') as string;
     }
   }
   
-  // Final fallback for development
-  console.log('Using development fallback encryption key');
+  // Final fallback for development - make sure this is at least 32 characters
   return 'dev-fallback-encryption-key-32-chars-long!';
 };
 
@@ -73,9 +68,18 @@ export const isEncryptionConfigured = (): boolean => {
   return isConfigured;
 };
 
+// Check if a string is encrypted (starts with U2FsdGVkX1)
+export const isEncrypted = (data: string): boolean => {
+  return data && data.startsWith('U2FsdGVkX1');
+};
+
 export const encryptData = (data: string): string => {
   if (!data) return data;
   try {
+    // Don't encrypt already encrypted data
+    if (isEncrypted(data)) {
+      return data;
+    }
     return CryptoJS.AES.encrypt(data, ENCRYPTION_KEY).toString();
   } catch (error) {
     console.error('Encryption error:', error);
@@ -86,6 +90,10 @@ export const encryptData = (data: string): string => {
 export const decryptData = (encryptedData: string): string => {
   if (!encryptedData) return encryptedData;
   try {
+    // Only attempt to decrypt if it looks encrypted
+    if (!isEncrypted(encryptedData)) {
+      return encryptedData;
+    }
     const bytes = CryptoJS.AES.decrypt(encryptedData, ENCRYPTION_KEY);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
     return decrypted || encryptedData;
@@ -97,7 +105,7 @@ export const decryptData = (encryptedData: string): string => {
 
 // Helper function to encrypt object fields based on table
 export const encryptObjectFields = (obj: any, table: string): any => {
-  if (!obj || !isEncryptionConfigured()) return obj;
+  if (!obj) return obj;
   
   const encrypted = { ...obj };
   const fieldsToEncrypt = ENCRYPTION_CONFIG[table] || [];
@@ -113,7 +121,7 @@ export const encryptObjectFields = (obj: any, table: string): any => {
 
 // Helper function to decrypt object fields based on table
 export const decryptObjectFields = (obj: any, table: string): any => {
-  if (!obj || !isEncryptionConfigured()) return obj;
+  if (!obj) return obj;
   
   const decrypted = { ...obj };
   const fieldsToDecrypt = ENCRYPTION_CONFIG[table] || [];

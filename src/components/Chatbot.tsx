@@ -1,7 +1,9 @@
 // src/components/Chatbot.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { callGroqAPI, GroqMessage } from '../utils/groqApi';
+import { callGeminiAPI, GeminiMessage } from '../utils/geminiApi';
 import { formatText } from '../utils/textFormatter';
+import { decryptValue, isEncrypted } from '../utils/encryptionUtils';
 import './Chatbot.css';
 
 interface Message {
@@ -9,6 +11,7 @@ interface Message {
   text: string;
   sender: 'user' | 'bot';
   timestamp: Date;
+  apiUsed?: 'gemini' | 'groq';
 }
 
 interface CriminalRecord {
@@ -39,6 +42,65 @@ interface ChatbotProps {
   onClose?: () => void;
 }
 
+// Helper function to decrypt criminal data fields
+const decryptCriminalData = (data: CriminalRecord | null): CriminalRecord | null => {
+  if (!data) return null;
+  
+  const decrypted = { ...data };
+  
+  // List of fields that might be encrypted
+  const encryptedFields = [
+    'name', 'phone_number', 'email', 'address', 'last_location',
+    'modus_operandi', 'tools_used', 'associates'
+  ];
+  
+  encryptedFields.forEach(field => {
+    if (decrypted[field] && typeof decrypted[field] === 'string' && isEncrypted(decrypted[field])) {
+      decrypted[field] = decryptValue(decrypted[field]);
+    }
+  });
+  
+  return decrypted;
+};
+
+// Function to determine which API to use
+const shouldUseGemini = (query: string): boolean => {
+  const lowerQuery = query.toLowerCase();
+  
+  // Use Gemini for complex analysis, summaries, legal reasoning
+  const geminiKeywords = [
+    'analyze', 'analysis', 'summary', 'summarize', 'report', 
+    'legal', 'reasoning', 'pattern', 'trend', 'predict',
+    'comprehensive', 'detailed', 'investigation', 'case study',
+    'modus operandi', 'risk assessment', 'strategy', 'recommendation',
+    'generate', 'create', 'write', 'draft', 'explain in detail',
+    'compare', 'evaluate', 'assess', 'review', 'critique'
+  ];
+  
+  // Use Groq for quick questions, FAQs, simple queries
+  const groqKeywords = [
+    'what is', 'how to', 'explain', 'define', 'quick',
+    'simple', 'faq', 'help', 'guide', 'steps',
+    'list', 'examples', 'basics', 'overview', 'short',
+    'brief', 'tell me', 'who is', 'when did', 'where is'
+  ];
+  
+  const geminiScore = geminiKeywords.filter(keyword => lowerQuery.includes(keyword)).length;
+  const groqScore = groqKeywords.filter(keyword => lowerQuery.includes(keyword)).length;
+  
+  // Also use Gemini for longer queries (more comprehensive)
+  const wordCount = query.split(' ').length;
+  
+  if (wordCount > 15) return true; // Longer queries → Gemini
+  if (geminiScore > groqScore) return true;
+  if (geminiScore === 0 && groqScore === 0) {
+    // Default to Groq for very short queries, Gemini for others
+    return wordCount > 8;
+  }
+  
+  return false;
+};
+
 const Chatbot: React.FC<ChatbotProps> = ({ 
   setActiveView, 
   initialMessage = '', 
@@ -53,12 +115,16 @@ const Chatbot: React.FC<ChatbotProps> = ({
       id: 1,
       text: "Hello! I'm your Crime Data Assistant. How can I help you with criminal analysis today?",
       sender: 'bot',
-      timestamp: new Date()
+      timestamp: new Date(),
+      apiUsed: 'groq' // Default first message from Groq
     }
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Decrypt criminal data when component receives it
+  const decryptedCriminalData = decryptCriminalData(criminalData);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -92,56 +158,126 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setIsLoading(true);
 
     try {
-      const groqMessages: GroqMessage[] = [
-        {
-          role: 'system',
-          content: `You are a crime data analysis assistant for Tamil Nadu Police. You help analyze criminal patterns, 
-          provide insights on criminal behavior, and assist with crime investigation. Be professional, concise, and factual.
-          
-          ${criminalData ? `
-          Current criminal being analyzed:
-          - Name: ${criminalData.name}
-          - Case ID: ${criminalData.case_id}
-          - Crime Type: ${criminalData.crime_type}
-          - Status: ${criminalData.current_status}
-          - Risk Level: ${criminalData.risk_level}
-          - Location: ${criminalData.last_location}
-          ${criminalData.modus_operandi ? `- Modus Operandi: ${criminalData.modus_operandi}` : ''}
-          ${criminalData.total_cases ? `- Total Cases: ${criminalData.total_cases}` : ''}
-          ` : ''}
-          `
-        },
-        ...messages.slice(1).map(msg => ({
-          role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
-          content: msg.text
-        })),
-        {
-          role: 'user',
-          content: inputText
-        }
-      ];
+      const useGemini = shouldUseGemini(inputText);
+      
+      // Prepare system prompt
+      const systemPrompt = `You are a crime data analysis assistant for Tamil Nadu Police. You help analyze criminal patterns, 
+      provide insights on criminal behavior, and assist with crime investigation. Be professional, concise, and factual.
+      
+      ${decryptedCriminalData ? `
+      Current criminal being analyzed:
+      - Name: ${decryptedCriminalData.name || 'Unknown'}
+      - Case ID: ${decryptedCriminalData.case_id || 'Unknown'}
+      - Crime Type: ${decryptedCriminalData.crime_type || 'Unknown'}
+      - Status: ${decryptedCriminalData.current_status || 'Unknown'}
+      - Risk Level: ${decryptedCriminalData.risk_level || 'Unknown'}
+      - Location: ${decryptedCriminalData.last_location || 'Unknown'}
+      ${decryptedCriminalData.modus_operandi ? `- Modus Operandi: ${decryptedCriminalData.modus_operandi}` : ''}
+      ${decryptedCriminalData.total_cases ? `- Total Cases: ${decryptedCriminalData.total_cases}` : ''}
+      ${decryptedCriminalData.age ? `- Age: ${decryptedCriminalData.age}` : ''}
+      ${decryptedCriminalData.gender ? `- Gender: ${decryptedCriminalData.gender}` : ''}
+      ` : ''}
+      
+      Important: Always refer to criminals by their decrypted names if available. If you receive encrypted data 
+      (starting with U2FsdGVkX1), inform the user that decryption may be needed.`;
 
-      const botResponseText = await callGroqAPI(groqMessages);
+      let botResponseText: string;
+      let apiUsed: 'gemini' | 'groq' = useGemini ? 'gemini' : 'groq';
+
+      if (useGemini) {
+        // Use Gemini API
+        const geminiMessages: GeminiMessage[] = [
+          {
+            role: 'system',
+            parts: [{ text: systemPrompt }]
+          },
+          ...messages.slice(1).map(msg => ({
+            role: msg.sender === 'user' ? 'user' as const : 'model' as const,
+            parts: [{ text: msg.text }]
+          })),
+          {
+            role: 'user',
+            parts: [{ text: inputText }]
+          }
+        ];
+
+        botResponseText = await callGeminiAPI(geminiMessages, decryptedCriminalData);
+      } else {
+        // Use Groq API
+        const groqMessages: GroqMessage[] = [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          ...messages.slice(1).map(msg => ({
+            role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
+            content: msg.text
+          })),
+          {
+            role: 'user',
+            content: inputText
+          }
+        ];
+
+        botResponseText = await callGroqAPI(groqMessages);
+      }
       
       const botResponse: Message = {
         id: messages.length + 2,
         text: botResponseText,
         sender: 'bot',
-        timestamp: new Date()
+        timestamp: new Date(),
+        apiUsed
       };
       
       setMessages(prev => [...prev, botResponse]);
     } catch (error) {
       console.error('Error getting AI response:', error);
       
-      const errorResponse: Message = {
-        id: messages.length + 2,
-        text: "I apologize, but I'm experiencing technical difficulties. Please try again in a moment.",
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, errorResponse]);
+      // Try fallback API
+      try {
+        const fallbackApi = shouldUseGemini(inputText) ? 'groq' : 'gemini';
+        let fallbackResponse: string;
+        
+        if (fallbackApi === 'gemini') {
+          const geminiMessages: GeminiMessage[] = [
+            {
+              role: 'user',
+              parts: [{ text: inputText }]
+            }
+          ];
+          fallbackResponse = await callGeminiAPI(geminiMessages, decryptedCriminalData);
+        } else {
+          const groqMessages: GroqMessage[] = [
+            {
+              role: 'user',
+              content: inputText
+            }
+          ];
+          fallbackResponse = await callGroqAPI(groqMessages);
+        }
+        
+        const botResponse: Message = {
+          id: messages.length + 2,
+          text: fallbackResponse,
+          sender: 'bot',
+          timestamp: new Date(),
+          apiUsed: fallbackApi
+        };
+        
+        setMessages(prev => [...prev, botResponse]);
+      } catch (fallbackError) {
+        console.error('Fallback API also failed:', fallbackError);
+        
+        const errorResponse: Message = {
+          id: messages.length + 2,
+          text: "I apologize, but I'm experiencing technical difficulties. Please try again in a moment.",
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => [...prev, errorResponse]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -183,7 +319,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
         id: 1,
         text: "Hello! I'm your Crime Data Assistant. How can I help you with criminal analysis today?",
         sender: 'bot',
-        timestamp: new Date()
+        timestamp: new Date(),
+        apiUsed: 'groq'
       }]);
     }
   };
@@ -210,7 +347,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
           <div className="chatbot-header">
             <div className="chatbot-title">
               <h3>Crime Data Assistant</h3>
-              <p>Powered by AI Analysis</p>
+              <p>Powered by AI Analysis (Gemini + Groq)</p>
             </div>
             <div className="chatbot-controls">
               <button 
@@ -257,6 +394,11 @@ const Chatbot: React.FC<ChatbotProps> = ({
                 </div>
                 <div className="message-time">
                   {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {message.sender === 'bot' && message.apiUsed && (
+                    <span className={`api-indicator api-${message.apiUsed}`}>
+                      {message.apiUsed.toUpperCase()}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

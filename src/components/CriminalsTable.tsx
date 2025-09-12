@@ -1,6 +1,6 @@
 import { useState, useMemo, Fragment } from 'react';
 import { useCriminalRecords } from '@/hooks/useCriminalRecords';
-import { Search, Filter, ArrowUpDown, X, Edit, Eye, Save, ChevronDown, ChevronUp, Brain } from 'lucide-react';
+import { Search, Filter, ArrowUpDown, X, Edit, Eye, Save, ChevronDown, ChevronUp, Brain, User, Trash2 } from 'lucide-react';
 
 // Define TypeScript interfaces
 interface CriminalRecord {
@@ -21,6 +21,7 @@ interface CriminalRecord {
   tools_used?: string;
   associates?: string;
   address?: string;
+  criminal_photo_url?: string;
   [key: string]: any;
 }
 
@@ -35,6 +36,12 @@ interface ViewModalProps {
   onClose: () => void;
 }
 
+interface DeleteModalProps {
+  record: CriminalRecord;
+  onConfirm: () => void;
+  onClose: () => void;
+}
+
 interface DetailItemProps {
   label: string;
   value: string | number | undefined;
@@ -43,6 +50,47 @@ interface DetailItemProps {
 
 interface CriminalsTableProps {
   onAskAI?: (criminalData: CriminalRecord) => void;
+}
+
+// Delete confirmation modal component
+function DeleteModal({ record, onConfirm, onClose }: DeleteModalProps) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-gray-800">Confirm Deletion</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        <div className="mb-6">
+          <p className="text-gray-600 mb-4">
+            Are you sure you want to delete the record for <strong>{record.name}</strong> (Case ID: {record.case_id})?
+          </p>
+          <p className="text-red-600 text-sm">
+            This action cannot be undone and all associated data will be permanently removed.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Record
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // Edit modal component
@@ -204,6 +252,29 @@ function ViewModal({ record, onClose }: ViewModalProps) {
           </button>
         </div>
 
+        <div className="flex items-center mb-6">
+          {record.criminal_photo_url ? (
+            <img 
+              src={record.criminal_photo_url} 
+              alt={record.name}
+              className="w-24 h-24 rounded-full object-cover border-2 border-gray-300"
+              onError={(e) => {
+                // If image fails to load, show placeholder
+                e.currentTarget.style.display = 'none';
+                const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
+                if (placeholder) placeholder.classList.remove('hidden');
+              }}
+            />
+          ) : null}
+          <div className={`w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center border-2 border-gray-300 ${record.criminal_photo_url ? 'hidden' : ''}`}>
+            <User className="h-12 w-12 text-gray-400" />
+          </div>
+          <div className="ml-4">
+            <h2 className="text-2xl font-bold text-gray-800">{record.name}</h2>
+            <p className="text-gray-600">{record.case_id}</p>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <h4 className="font-semibold text-gray-800 border-b pb-2">Basic Information</h4>
@@ -260,81 +331,51 @@ function DetailItem({ label, value, fullWidth = false }: DetailItemProps) {
 }
 
 export function CriminalsTable({ onAskAI }: CriminalsTableProps) {
-  const { records, loading, error, updateCriminalRecord } = useCriminalRecords();
+  const { records, loading, error, updateCriminalRecord, deleteCriminalRecord } = useCriminalRecords();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(null);
   const [filters, setFilters] = useState<{ [key: string]: string }>({});
   const [showFilters, setShowFilters] = useState(false);
   const [editingRecord, setEditingRecord] = useState<CriminalRecord | null>(null);
   const [viewingRecord, setViewingRecord] = useState<CriminalRecord | null>(null);
+  const [deletingRecord, setDeletingRecord] = useState<CriminalRecord | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  // FIXED: Handle different data formats from useCriminalRecords
-  // FIXED: Handle different data formats from useCriminalRecords with proper typing
-const safeRecords = useMemo(() => {
-  console.log('Raw records from hook:', records);
-  
-  // Handle case where records might be null, undefined
-  if (!records) {
-    console.log('Records is null or undefined');
-    return [];
-  }
-  
-  // Handle case where records is an object with data property
-  if (typeof records === 'object' && records !== null && !Array.isArray(records)) {
-    console.log('Records is an object, checking for data property');
+  // Process records to ensure they have proper structure
+  const safeRecords = useMemo(() => {
+    if (!records) return [];
     
-    // Use type assertion to handle the object case
-    const recordsObj = records as any;
-    
-    // If records has a data property that is an array
-    if (recordsObj.data && Array.isArray(recordsObj.data)) {
-      console.log('Found data array in records object');
-      return recordsObj.data.map((record: any, index: number) => ({
+    // If records is an array, use it directly
+    if (Array.isArray(records)) {
+      return records.map((record, index) => ({
         ...record,
-        id: record.id || `record-${index}-${Math.random().toString(36).substr(2, 9)}`
+        id: record.id || `record-${index}-${Math.random().toString(36).substr(2, 9)}`,
+        // Ensure criminal_photo_url is properly handled
+        criminal_photo_url: record.criminal_photo_url || null
       })) as CriminalRecord[];
     }
     
-    // If records is an object but we can convert it to an array
-    if (Object.keys(recordsObj).length > 0) {
-      console.log('Converting object to array');
-      // Check if it's an object with numeric keys (like {0: {}, 1: {}})
-      const hasNumericKeys = Object.keys(recordsObj).every(key => !isNaN(Number(key)));
-      
-      if (hasNumericKeys) {
-        return Object.values(recordsObj).map((record: any, index: number) => ({
-          ...record,
-          id: record.id || `record-${index}-${Math.random().toString(36).substr(2, 9)}`
-        })) as CriminalRecord[];
-      }
-      
-      // If it's a single record object, wrap it in an array
-      if (recordsObj.case_id || recordsObj.name) {
-        console.log('Single record object found, wrapping in array');
-        return [{
-          ...recordsObj,
-          id: recordsObj.id || `record-0-${Math.random().toString(36).substr(2, 9)}`
-        }] as CriminalRecord[];
-      }
+    // If records is an object with data property
+    if (records.data && Array.isArray(records.data)) {
+      return records.data.map((record: any, index: number) => ({
+        ...record,
+        id: record.id || `record-${index}-${Math.random().toString(36).substr(2, 9)}`,
+        criminal_photo_url: record.criminal_photo_url || null
+      })) as CriminalRecord[];
     }
     
-    console.log('Records is an object but cannot be converted to array:', recordsObj);
+    // If records is a single object, wrap it in an array
+    if (typeof records === 'object' && records !== null) {
+      return [{
+        ...records,
+        id: (records as any).id || `record-0-${Math.random().toString(36).substr(2, 9)}`,
+        criminal_photo_url: (records as any).criminal_photo_url || null
+      }] as CriminalRecord[];
+    }
+    
     return [];
-  }
-  
-  // Handle case where records is already an array
-  if (Array.isArray(records)) {
-    console.log('Records is already an array');
-    return records.map((record, index) => ({
-      ...record,
-      id: record.id || `record-${index}-${Math.random().toString(36).substr(2, 9)}`
-    })) as CriminalRecord[];
-  }
-  
-  console.error('Unknown records format:', records);
-  return [];
-}, [records]);
+  }, [records]);
+
   // Toggle row expansion
   const toggleRowExpansion = (id: string) => {
     setExpandedRows(prev => {
@@ -425,6 +466,19 @@ const safeRecords = useMemo(() => {
     } catch (error) {
       console.error('Error updating record:', error);
       alert('Error updating record. Please try again.');
+    }
+  };
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = async () => {
+    if (!deletingRecord) return;
+    
+    try {
+      await deleteCriminalRecord(Number(deletingRecord.id));
+      setDeletingRecord(null);
+    } catch (error) {
+      console.error('Error deleting record:', error);
+      alert('Error deleting record. Please try again.');
     }
   };
 
@@ -562,6 +616,9 @@ const safeRecords = useMemo(() => {
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">
                 Details
               </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">
+                Photo
+              </th>
               {['case_id', 'name', 'crime_type', 'last_location', 'current_status', 'actions'].map((column) => (
                 <th 
                   key={column} 
@@ -586,7 +643,7 @@ const safeRecords = useMemo(() => {
           <tbody>
             {filteredAndSortedRecords.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                   {safeRecords.length === 0 ? 'No criminal records found' : 'No records matching your criteria'}
                 </td>
               </tr>
@@ -605,6 +662,24 @@ const safeRecords = useMemo(() => {
                           <ChevronDown className="h-4 w-4" />
                         )}
                       </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      {record.criminal_photo_url ? (
+                        <img 
+                          src={record.criminal_photo_url} 
+                          alt={record.name}
+                          className="w-10 h-10 rounded-full object-cover border border-gray-300"
+                          onError={(e) => {
+                            // If image fails to load, show placeholder
+                            e.currentTarget.style.display = 'none';
+                            const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (placeholder) placeholder.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border border-gray-300 ${record.criminal_photo_url ? 'hidden' : ''}`}>
+                        <User className="h-5 w-5 text-gray-400" />
+                      </div>
                     </td>
                     <td className="px-4 py-3 font-medium">{record.case_id}</td>
                     <td className="px-4 py-3">{record.name}</td>
@@ -639,6 +714,13 @@ const safeRecords = useMemo(() => {
                         >
                           <Edit className="h-4 w-4" />
                         </button>
+                        <button
+                          onClick={() => setDeletingRecord(record)}
+                          className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                          title="Delete Record"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                         {onAskAI && (
                           <button
                             onClick={() => onAskAI(record)}
@@ -653,7 +735,7 @@ const safeRecords = useMemo(() => {
                   </tr>
                   {expandedRows.has(record.id) && (
                     <tr className="bg-gray-50">
-                      <td colSpan={7} className="px-4 py-3">
+                      <td colSpan={8} className="px-4 py-3">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div><span className="font-medium">Age:</span> {record.age || 'N/A'}</div>
                           <div><span className="font-medium">Gender:</span> {record.gender || 'N/A'}</div>
@@ -684,6 +766,15 @@ const safeRecords = useMemo(() => {
         <ViewModal
           record={viewingRecord}
           onClose={() => setViewingRecord(null)}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingRecord && (
+        <DeleteModal
+          record={deletingRecord}
+          onConfirm={handleDeleteConfirm}
+          onClose={() => setDeletingRecord(null)}
         />
       )}
     </div>

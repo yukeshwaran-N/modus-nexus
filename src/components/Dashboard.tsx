@@ -3,8 +3,9 @@ import {
   Brain, Clock, Target, Shield, Activity, Database, Cpu, 
   Map, Users, BarChart3, Info, Cloud, Newspaper, ChevronRight,
   Sparkles, Leaf, Eye, Navigation, MapPin, Locate, LocateOff, AlertCircle,
-  Thermometer, Droplets, Wind, Gauge
+  Thermometer, Droplets, Wind, Gauge, LogOut, User, Settings
 } from "lucide-react";
+import { useAuth } from '../context/useAuth';
 
 // Weather Types
 interface WeatherData {
@@ -124,7 +125,7 @@ const WeatherWidget: React.FC = () => {
       </button>
 
       {showTooltip && (
-        <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-10">
+        <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-50">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-800 flex items-center gap-2">
               <Cloud className="h-5 w-5 text-blue-500" />
@@ -211,7 +212,7 @@ const WeatherWidget: React.FC = () => {
   );
 };
 
-// NewsCard Component (unchanged)
+// NewsCard Component
 const NewsCard: React.FC = () => {
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -341,7 +342,7 @@ const NewsCard: React.FC = () => {
   );
 };
 
-// SystemInfoWidget Component (unchanged)
+// SystemInfoWidget Component
 const SystemInfoWidget: React.FC = () => {
   const [showInfo, setShowInfo] = useState(false);
 
@@ -356,7 +357,7 @@ const SystemInfoWidget: React.FC = () => {
       </button>
 
       {showInfo && (
-        <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-10">
+        <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-50">
           <h4 className="font-semibold text-gray-800 mb-3">System Status</h4>
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
@@ -383,8 +384,98 @@ const SystemInfoWidget: React.FC = () => {
   );
 };
 
-// Dashboard Component (unchanged)
+// UserProfile Component
+const UserProfile: React.FC = () => {
+  const { user, policeOfficer, signOut } = useAuth();
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  const getUserInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        className="flex items-center justify-center w-10 h-10 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+        onClick={() => setShowProfileMenu(!showProfileMenu)}
+        aria-label="User profile"
+      >
+        {user?.name ? (
+          <span className="font-semibold text-sm">
+            {getUserInitials(user.name)}
+          </span>
+        ) : (
+          <User className="h-5 w-5" />
+        )}
+      </button>
+
+      {showProfileMenu && (
+        <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-50">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-full">
+              {user?.name ? (
+                <span className="font-semibold text-lg">
+                  {getUserInitials(user.name)}
+                </span>
+              ) : (
+                <User className="h-6 w-6" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="font-semibold text-gray-800 truncate">
+                {user?.name || 'User'}
+              </h4>
+              <p className="text-sm text-gray-500 truncate">
+                {user?.email || 'No email'}
+              </p>
+              {policeOfficer && (
+                <p className="text-xs text-blue-600 font-medium">
+                  {policeOfficer.rank} • {policeOfficer.department}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2 border-t border-gray-100 pt-3">
+            <button className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
+              <User className="h-4 w-4 text-gray-400" />
+              <span>Profile</span>
+            </button>
+            
+            <button className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors">
+              <Settings className="h-4 w-4 text-gray-400" />
+              <span>Settings</span>
+            </button>
+            
+            <button
+              onClick={signOut}
+              className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
+            <p>MODUS-NEXUS v1.0</p>
+            <p>Tamil Nadu Police Intelligence Platform</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Dashboard Component
 export default function Dashboard() {
+  const { user, policeOfficer } = useAuth();
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
   // Function to handle Get Started button click
   const handleGetStarted = () => {
     alert("Get Started functionality would be implemented here!");
@@ -395,15 +486,40 @@ export default function Dashboard() {
     alert("Pattern Detection functionality would be implemented here!");
   };
 
+  // Get user location for weather (with error handling)
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.log("Geolocation error (non-critical):", error);
+          // Set default location (Chennai)
+          setUserLocation({ lat: 13.0827, lng: 80.2707 });
+        },
+        { 
+          timeout: 10000,
+          enableHighAccuracy: false 
+        }
+      );
+    } else {
+      // Set default location if geolocation is not supported
+      setUserLocation({ lat: 13.0827, lng: 80.2707 });
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header Section with only System Info and Weather in top right */}
-        <div className="flex justify-end">
-          <div className="flex items-center gap-2">
-            <WeatherWidget />
-            <SystemInfoWidget />
-          </div>
+        {/* Header Section with User Profile, System Info and Weather */}
+        <div className="flex justify-end items-center gap-2">
+          <WeatherWidget />
+          <SystemInfoWidget />
+          <UserProfile />
         </div>
 
         {/* Hero Section with centered logo */}

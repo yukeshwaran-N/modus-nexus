@@ -1,6 +1,5 @@
-// src/App.tsx
-import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+// File: src/App.tsx
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from '@/components/AppSidebar';
 import Dashboard from '@/components/Dashboard';
@@ -16,6 +15,12 @@ import Chatbot from './components/Chatbot';
 import { Cases } from './components/Cases';
 import { SetupWizard } from '@/components/SetupWizard';
 import { EncryptionTest } from '@/components/EncryptionTest';
+import { AuthProvider, useAuth } from './context/useAuth';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoginPage from './components/LoginPage';
+import PoliceOfficerAdmin from './components/PoliceOfficerAdmin';
+import LoadingSpinner from './components/LoadingSpinner';
+import { useEffect, useState } from 'react';
 
 // Define the CriminalRecord interface
 interface CriminalRecord {
@@ -49,6 +54,7 @@ declare global {
 // Component to sync sidebar state with routing
 function RouteSync({ setActiveView }: { setActiveView: (view: string) => void }) {
   const location = window.location;
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Extract view from pathname and set active view
@@ -58,7 +64,7 @@ function RouteSync({ setActiveView }: { setActiveView: (view: string) => void })
     } else {
       setActiveView('dashboard');
     }
-  }, [location.pathname, setActiveView]);
+  }, [location.pathname, setActiveView, navigate]);
 
   return null;
 }
@@ -71,41 +77,42 @@ function AppContent() {
   const [criminalDataForAnalysis, setCriminalDataForAnalysis] = useState<CriminalRecord | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const { user, loading, authChecked } = useAuth();
+  const navigate = useNavigate();
 
   // Set encryption key for browser environment
-  // In your App.tsx, update the useEffect hook:
-useEffect(() => {
-  if (typeof window !== 'undefined') {
-    // Use Vite environment variable first (most secure)
-    if (import.meta.env.VITE_ENCRYPTION_KEY) {
-      window.ENCRYPTION_KEY = import.meta.env.VITE_ENCRYPTION_KEY;
-      console.log('Encryption key loaded from Vite environment');
-      return;
-    }
-    
-    // Use global variable (set by Vite config)
-    if (typeof globalThis !== 'undefined' && (globalThis as any).ENCRYPTION_KEY) {
-      window.ENCRYPTION_KEY = (globalThis as any).ENCRYPTION_KEY;
-      console.log('Encryption key loaded from global variable');
-      return;
-    }
-    
-    // Fallback to meta tag
-    const metaKey = document.querySelector('meta[name="encryption-key"]');
-    if (metaKey) {
-      const key = metaKey.getAttribute('content');
-      if (key) {
-        window.ENCRYPTION_KEY = key;
-        console.log('Encryption key loaded from meta tag');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Use Vite environment variable first (most secure)
+      if (import.meta.env.VITE_ENCRYPTION_KEY) {
+        window.ENCRYPTION_KEY = import.meta.env.VITE_ENCRYPTION_KEY;
+        console.log('Encryption key loaded from Vite environment');
         return;
       }
+      
+      // Use global variable (set by Vite config)
+      if (typeof globalThis !== 'undefined' && (globalThis as any).ENCRYPTION_KEY) {
+        window.ENCRYPTION_KEY = (globalThis as any).ENCRYPTION_KEY;
+        console.log('Encryption key loaded from global variable');
+        return;
+      }
+      
+      // Fallback to meta tag
+      const metaKey = document.querySelector('meta[name="encryption-key"]');
+      if (metaKey) {
+        const key = metaKey.getAttribute('content');
+        if (key) {
+          window.ENCRYPTION_KEY = key;
+          console.log('Encryption key loaded from meta tag');
+          return;
+        }
+      }
+      
+      // Final fallback for development
+      window.ENCRYPTION_KEY = 'dev-encryption-key-32-chars-long!';
+      console.log('Using development fallback encryption key');
     }
-    
-    // Final fallback for development
-    window.ENCRYPTION_KEY = 'dev-encryption-key-32-chars-long!';
-    console.log('Using development fallback encryption key');
-  }
-}, []);
+  }, []);
 
   const handleAskAI = (criminalData: CriminalRecord) => {
     setChatbotInitialMessage(`Analyze criminal: ${criminalData.name}`);
@@ -116,9 +123,9 @@ useEffect(() => {
   const handleViewChange = (view: string) => {
     setActiveView(view);
     if (view === 'dashboard') {
-      window.location.href = '/';
+      navigate('/');
     } else {
-      window.location.href = `/${view}`;
+      navigate(`/${view}`);
     }
   };
 
@@ -129,6 +136,17 @@ useEffect(() => {
       ? "ml-20" 
       : "ml-64";
 
+  // Show loading state while checking authentication
+  if (loading || !authChecked) {
+    return <LoadingSpinner />;
+  }
+
+  // Show login page if not authenticated
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  // Show main app if authenticated
   return (
     <SidebarProvider>
       <RouteSync setActiveView={setActiveView} />
@@ -163,6 +181,7 @@ useEffect(() => {
             <Route path="/cases" element={<Cases />} />
             <Route path="/setup" element={<SetupWizard />} />
             <Route path="/encryption-test" element={<EncryptionTest />} />
+            <Route path="/admin/officers" element={<PoliceOfficerAdmin />} />
           </Routes>
         </div>
         
@@ -184,9 +203,11 @@ useEffect(() => {
 // Main App wrapper with Router
 function App() {
   return (
-    <Router>
-      <AppContent />
-    </Router>
+    <AuthProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </AuthProvider>
   );
 }
 

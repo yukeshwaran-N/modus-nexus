@@ -414,3 +414,17 @@
       height: 28px;
     }
   }
+  /* Add to your existing CSS */
+.api-indicator {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  margin-top: 5px;
+}
+
+.api-gemini {
+  color: #4285f4;
+}
+
+.api-groq {
+  color: #00b894;
+}

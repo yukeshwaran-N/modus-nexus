@@ -1,0 +1,166 @@
+export interface Database {
+    public: {
+      Tables: {
+        criminal_records: {
+          Row: {
+            id: number;
+            case_id: string | null;
+            name: string | null;
+            age: number | null;
+            gender: string | null;
+            phone_number: string | null;
+            email: string | null;
+            nationality: string | null;
+            crime_type: string | null;
+            modus_operandi: string | null;
+            tools_used: string | null;
+            associates: string | null;
+            victim_photo_path: string | null;
+            evidence_photo_paths: string | null;
+            connected_criminals: string | null;
+            case_status: string | null;
+            current_status: string | null;
+            last_location: string | null;
+            arrest_date: string | null;
+            bail_date: string | null;
+            bio: string | null;
+            date_added: string | null;
+            total_cases: number | null;
+            legal_status: string | null;
+            known_associates: string | null;
+            case_progress_timeline: string | null;
+            address: string | null;
+            address_line: string | null;
+            city: string | null;
+            state: string | null;
+            country: string | null;
+            risk_level: string | null;
+            threat_level: string | null;
+            criminal_photo_url: string | null;
+            evidence_files_urls: string[] | null;
+          };
+          Insert: {
+            id?: never;
+            case_id?: string | null;
+            name?: string | null;
+            age?: number | null;
+            gender?: string | null;
+            phone_number?: string | null;
+            email?: string | null;
+            nationality?: string | null;
+            crime_type?: string | null;
+            modus_operandi?: string | null;
+            tools_used?: string | null;
+            associates?: string | null;
+            victim_photo_path?: string | null;
+            evidence_photo_paths?: string | null;
+            connected_criminals?: string | null;
+            case_status?: string | null;
+            current_status?: string | null;
+            last_location?: string | null;
+            arrest_date?: string | null;
+            bail_date?: string | null;
+            bio?: string | null;
+            date_added?: string | null;
+            total_cases?: number | null;
+            legal_status?: string | null;
+            known_associates?: string | null;
+            case_progress_timeline?: string | null;
+            address?: string | null;
+            address_line?: string | null;
+            city?: string | null;
+            state?: string | null;
+            country?: string | null;
+            risk_level?: string | null;
+            threat_level?: string | null;
+            criminal_photo_url?: string | null;
+            evidence_files_urls?: string[] | null;
+          };
+          Update: {
+            id?: number;
+            case_id?: string | null;
+            name?: string | null;
+            age?: number | null;
+            gender?: string | null;
+            phone_number?: string | null;
+            email?: string | null;
+            nationality?: string | null;
+            crime_type?: string | null;
+            modus_operandi?: string | null;
+            tools_used?: string | null;
+            associates?: string | null;
+            victim_photo_path?: string | null;
+            evidence_photo_paths?: string | null;
+            connected_criminals?: string | null;
+            case_status?: string | null;
+            current_status?: string | null;
+            last_location?: string | null;
+            arrest_date?: string | null;
+            bail_date?: string | null;
+            bio?: string | null;
+            date_added?: string | null;
+            total_cases?: number | null;
+            legal_status?: string | null;
+            known_associates?: string | null;
+            case_progress_timeline?: string | null;
+            address?: string | null;
+            address_line?: string | null;
+            city?: string | null;
+            state?: string | null;
+            country?: string | null;
+            risk_level?: string | null;
+            threat_level?: string | null;
+            criminal_photo_url?: string | null;
+            evidence_files_urls?: string[] | null;
+          };
+        };
+        police_officers: {
+          Row: {
+            id: string;
+            badge_number: string;
+            name: string;
+            email: string;
+            password_hash: string;
+            rank: string;
+            department: string;
+            is_active: boolean;
+            created_at: string;
+            updated_at: string;
+          };
+          Insert: {
+            id?: never;
+            badge_number: string;
+            name: string;
+            email: string;
+            password_hash: string;
+            rank: string;
+            department: string;
+            is_active?: boolean;
+            created_at?: never;
+            updated_at?: never;
+          };
+          Update: {
+            id?: never;
+            badge_number?: string;
+            name?: string;
+            email?: string;
+            password_hash?: string;
+            rank?: string;
+            department?: string;
+            is_active?: boolean;
+            created_at?: never;
+            updated_at?: never;
+          };
+        };
+      };
+      Views: {
+        [_ in never]: never;
+      };
+      Functions: {
+        [_ in never]: never;
+      };
+      Enums: {
+        [_ in never]: never;
+      };
+    };
+  }
