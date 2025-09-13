@@ -527,11 +527,12 @@ export default function Dashboard() {
           <div className="max-w-4xl mx-auto space-y-4">
             {/* Centered Shield Logo */}
             <div className="flex justify-center">
-              <img 
-                src="/logo.png" 
-                alt="App Logo" 
-                className="h-30 w-40 object-contain mb-4"
-              />
+              <img
+  src="/logo.png"
+  alt="App Logo"
+  className="h-30 w-40 object-contain mb-4 bg-transparent"
+/>
+
             </div>
 
             <div className="inline-flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full text-sm font-medium text-black shadow-sm">
