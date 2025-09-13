@@ -10,7 +10,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Network // Added Network icon
+  Network,
+  Brain // Added Brain icon for CriminalPrediction
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -55,10 +56,16 @@ const navigationItems = [
     description: "Criminal database"
   },
   {
-    title: "Criminal Network", // Added Criminal Network item
+    title: "Criminal Network",
     icon: Network,
     id: "criminal-network",
     description: "Visualize connections"
+  },
+  {
+    title: "Criminal Prediction", // Added Criminal Prediction item
+    icon: Brain,
+    id: "criminal-prediction",
+    description: "AI prediction system"
   },
   {
     title: "Cases",

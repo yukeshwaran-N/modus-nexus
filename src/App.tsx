@@ -21,6 +21,8 @@ import PoliceOfficerAdmin from './components/PoliceOfficerAdmin';
 import LoadingSpinner from './components/LoadingSpinner';
 import { useEffect, useState } from 'react';
 
+// FIXED: Use default import instead of named import
+import CriminalPrediction from '@/components/CriminalPrediction';
 // Define the CriminalRecord interface
 interface CriminalRecord {
   id: string;
@@ -166,6 +168,7 @@ function AppContent() {
             <Route path="/setup" element={<SetupWizard />} />
             <Route path="/encryption-test" element={<EncryptionTest />} />
             <Route path="/admin/officers" element={<PoliceOfficerAdmin />} />
+            <Route path="/criminal-prediction" element={<CriminalPrediction />} />
           </Routes>
         </div>
       </div>
